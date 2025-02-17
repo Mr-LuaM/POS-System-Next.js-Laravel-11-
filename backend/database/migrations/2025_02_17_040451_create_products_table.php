@@ -17,7 +17,10 @@ return new class extends Migration
             $table->string('sku')->unique();
             $table->decimal('price', 10, 2);
             $table->integer('stock_quantity');
-            $table->string('category');
+            $table->integer('low_stock_threshold')->default(5); // Alert when stock is low
+            $table->foreignId('category_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('supplier_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('store_id')->nullable()->constrained()->onDelete('cascade'); // Multi-store support
             $table->timestamps();
         });
     }

@@ -14,17 +14,17 @@ class SuppliersTableSeeder extends Seeder
     public function run(): void
     {
         Supplier::create([
-            'name' => 'Tech Distributors Inc.',
-            'contact' => 'Supplier Rep',
-            'email' => 'supplier@example.com',
-            'address' => '123 Supplier St, Tech City',
+            'name' => 'Tech Supplier Inc.',
+            'contact' => '123-456-7890',
+            'email' => 'techsupplier@example.com',
+            'address' => '123 Tech Street, City'
         ]);
 
         Supplier::create([
-            'name' => 'Gadget Warehouse',
-            'contact' => 'Warehouse Manager',
-            'email' => 'warehouse@example.com',
-            'address' => '456 Warehouse Ave, Gadget Town',
+            'name' => 'Food Mart Wholesale',
+            'contact' => '987-654-3210',
+            'email' => 'foodmart@example.com',
+            'address' => '456 Food Street, City'
         ]);
     }
 }

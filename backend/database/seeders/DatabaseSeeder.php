@@ -22,11 +22,18 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             UsersTableSeeder::class,
+            CategoriesTableSeeder::class,
+            SuppliersTableSeeder::class,
+            StoresTableSeeder::class,
             ProductsTableSeeder::class,
             CustomersTableSeeder::class,
-            SuppliersTableSeeder::class,
-            DiscountsTableSeeder::class,
+            CashDrawersTableSeeder::class,
+            EmployeeShiftsTableSeeder::class,
+
             SalesTableSeeder::class,
+            StockMovementsTableSeeder::class,
+            DiscountsTableSeeder::class,
+
         ]);
     }
 }

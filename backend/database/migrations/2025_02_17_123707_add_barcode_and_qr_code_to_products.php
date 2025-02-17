@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->onDelete('set null');
+            $table->string('barcode')->nullable()->unique()->after('sku');
+            $table->string('qr_code')->nullable()->after('barcode');
         });
     }
 

@@ -11,12 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('employee_shifts', function (Blueprint $table) {
+        Schema::create('invoice_templates', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Employee ID
-            $table->timestamp('clock_in');
-            $table->timestamp('clock_out')->nullable();
+            $table->string('template_name');
+            $table->text('template_html');
             $table->timestamps();
+        });
+
+        Schema::table('receipts', function (Blueprint $table) {
+            $table->foreignId('invoice_template_id')->nullable()->constrained()->onDelete('set null');
         });
     }
 
@@ -25,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('employee_shifts');
+        Schema::dropIfExists('invoice_templates');
     }
 };

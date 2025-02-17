@@ -16,13 +16,13 @@ class CustomersTableSeeder extends Seeder
         Customer::create([
             'name' => 'John Doe',
             'email' => 'johndoe@example.com',
-            'phone' => '1234567890',
+            'phone' => '123-456-7890'
         ]);
 
         Customer::create([
             'name' => 'Jane Smith',
             'email' => 'janesmith@example.com',
-            'phone' => '0987654321',
+            'phone' => '987-654-3210'
         ]);
     }
 }
