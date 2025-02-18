@@ -30,10 +30,10 @@ Route::middleware('auth:api')->group(function () {
 
 
     Route::prefix('categories')->group(function () {
-        Route::get('/', [CategoryController::class, 'index']);
-        Route::post('/add', [CategoryController::class, 'store']);
-        Route::put('/update/{id}', [CategoryController::class, 'update']);
-        Route::delete('/delete/{id}', [CategoryController::class, 'destroy']);
+        Route::get('/', [CategoryController::class, 'getAll']);       // ✅ Get all categories
+        Route::post('/add', [CategoryController::class, 'addCategory']); // ✅ Add new category
+        Route::put('/update/{id}', [CategoryController::class, 'updateCategory']); // ✅ Update category
+        Route::delete('/delete/{id}', [CategoryController::class, 'deleteCategory']); // ✅ Delete category
     });
 
     // 🔹 Admin Routes (Full Access)

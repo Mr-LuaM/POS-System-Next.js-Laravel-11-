@@ -9,16 +9,16 @@ use Illuminate\Support\Facades\Validator;
 class SupplierController extends Controller
 {
     /**
-     * Display a listing of all suppliers.
+     * ✅ Get All Suppliers
      */
     public function getAll()
     {
-        $suppliers = Supplier::all();
+        $suppliers = Supplier::orderBy('id', 'desc')->get();
         return response()->json(['suppliers' => $suppliers], 200);
     }
 
     /**
-     * Store a newly created supplier.
+     * ✅ Add a New Supplier (With Proper Validation)
      */
     public function addSupplier(Request $request)
     {
@@ -42,14 +42,14 @@ class SupplierController extends Controller
     }
 
     /**
-     * Update the specified supplier.
+     * ✅ Update Supplier (Checks If Exists, Unique Email, and Validation)
      */
     public function updateSupplier(Request $request, $id)
     {
         $supplier = Supplier::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'string|max:255',
+            'name' => 'required|string|max:255',
             'contact' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255|unique:suppliers,email,' . $id,
             'address' => 'nullable|string|max:255',
@@ -68,7 +68,7 @@ class SupplierController extends Controller
     }
 
     /**
-     * Remove the specified supplier.
+     * ✅ Delete Supplier (Checks If Exists)
      */
     public function deleteSupplier($id)
     {
