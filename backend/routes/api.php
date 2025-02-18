@@ -28,18 +28,27 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
 
-
+    // 🔹 Categories (Common Access)
     Route::prefix('categories')->group(function () {
-        Route::get('/', [CategoryController::class, 'getAll']);       // ✅ Get all categories
-        Route::post('/add', [CategoryController::class, 'addCategory']); // ✅ Add new category
-        Route::put('/update/{id}', [CategoryController::class, 'updateCategory']); // ✅ Update category
-        Route::delete('/delete/{id}', [CategoryController::class, 'deleteCategory']); // ✅ Delete category
+        Route::get('/', [CategoryController::class, 'getAll']);
+        Route::post('/add', [CategoryController::class, 'addCategory']);
+        Route::put('/update/{id}', [CategoryController::class, 'updateCategory']);
+        Route::delete('/delete/{id}', [CategoryController::class, 'deleteCategory']);
     });
 
     // 🔹 Admin Routes (Full Access)
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/dashboard', function () {
             return response()->json(['message' => 'Welcome Admin!']);
+        });
+
+        // ✅ User Management (Admin Only)
+        Route::prefix('/users')->group(function () {
+            Route::get('/', [UserController::class, 'getAllUsers']); // ✅ Fetch all users
+            Route::post('/create', [UserController::class, 'createUser']); // ✅ Add new user
+            Route::put('/update/{id}', [UserController::class, 'updateUser']); // ✅ Update user
+            Route::delete('/delete/{id}', [UserController::class, 'deleteUser']); // ✅ Delete user
+            Route::put('/update-role/{id}', [UserController::class, 'updateUserRole']); // ✅ Change user role
         });
 
         // ✅ Inventory Management
@@ -49,14 +58,6 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/update/{id}', [InventoryController::class, 'updateProduct']);
             Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']);
             Route::get('/low-stock', [InventoryController::class, 'lowStockAlert']);
-        });
-
-        // ✅ User Management (Admin Only)
-        Route::prefix('/users')->group(function () {
-            Route::get('/', [UserController::class, 'getAllUsers']);
-            Route::post('/create', [UserController::class, 'createUser']);
-            Route::put('/update/{id}', [UserController::class, 'updateUser']);
-            Route::delete('/delete/{id}', [UserController::class, 'deleteUser']);
         });
 
         // ✅ Reports
@@ -70,7 +71,7 @@ Route::middleware('auth:api')->group(function () {
         // ✅ Store Management
         Route::prefix('/stores')->group(function () {
             Route::get('/', [StoreController::class, 'getAll']);
-            Route::post('/create', [StoreController::class, 'createStore']);
+            Route::post('/create', [StoreController::class, 'addStore']);
             Route::put('/update/{id}', [StoreController::class, 'updateStore']);
             Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']);
         });

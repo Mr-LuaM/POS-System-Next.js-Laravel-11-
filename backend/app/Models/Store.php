@@ -11,8 +11,27 @@ class Store extends Model
 
     protected $fillable = ['name', 'location'];
 
+    /**
+     * ✅ Define Relationship: A store has many sales.
+     */
+    public function sales()
+    {
+        return $this->hasMany(Sale::class);
+    }
+
+    /**
+     * ✅ Define Relationship: A store has many products.
+     */
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * ✅ Define Relationship: A store has many employee shifts.
+     */
+    public function employeeShifts()
+    {
+        return $this->hasMany(EmployeeShift::class);
     }
 }

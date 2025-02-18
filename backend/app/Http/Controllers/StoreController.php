@@ -23,7 +23,7 @@ class StoreController extends Controller
     public function addStore(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255|unique:stores,name',
+            'name' => 'required|string|max:255',
             'location' => 'nullable|string|max:255',
         ]);
 
@@ -88,6 +88,7 @@ class StoreController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * ✅ Delete a store.
