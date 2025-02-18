@@ -7,42 +7,48 @@ import { getSupplierColumns } from "./columns";
 import SupplierModal from "./supplier-modal";
 import ConfirmDialog from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { Supplier } from "./columns";
 
 /**
  * ✅ Suppliers Table (Handles Full CRUD)
  */
 export default function SuppliersTable() {
-  const { suppliers, loading, handleAddSupplier, handleUpdateSupplier, handleDeleteSupplier } = useSuppliers();
-  const [supplierData, setSupplierData] = useState<{ id?: number; name: string; contact: string; email?: string; address?: string } | null>(null);
+  const { suppliers, loading, saveSupplier, handleDeleteSupplier } = useSuppliers();
+  const [supplierData, setSupplierData] = useState<Supplier | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [deleteSupplierId, setDeleteSupplierId] = useState<number | null>(null);
 
-  // ✅ Open Add Modal
+  /**
+   * ✅ Open Add Supplier Modal
+   */
   const openAddModal = () => {
-    setSupplierData({ name: "", contact: "", email: "", address: "" });
+    setSupplierData(null);
     setModalOpen(true);
   };
 
-  // ✅ Open Edit Modal
-  const openEditModal = (supplier: any) => {
+  /**
+   * ✅ Open Edit Supplier Modal
+   */
+  const openEditModal = (supplier: Supplier) => {
     setSupplierData(supplier);
     setModalOpen(true);
   };
 
-  // ✅ Handle Submit
-  const handleSubmitSupplier = async (data: any) => {
-    try {
-      if (supplierData?.id) {
-        await handleUpdateSupplier(supplierData.id, data);
-      } else {
-        await handleAddSupplier(data);
-      }
-      toast.success("Supplier saved successfully!");
-      setModalOpen(false);
-    } catch {
-      toast.error("Failed to save supplier.");
-    }
+  /**
+   * ✅ Handle Add or Update Supplier Submission
+   */
+  const handleSubmitSupplier = async (data: Supplier) => {
+    await saveSupplier(data, supplierData?.id);
+    setModalOpen(false); // ✅ Close modal only on success
+  };
+
+  /**
+   * ✅ Handle Delete Confirmation
+   */
+  const handleDelete = async () => {
+    if (deleteSupplierId === null) return;
+    await handleDeleteSupplier(deleteSupplierId);
+    setDeleteSupplierId(null);
   };
 
   return (
@@ -58,25 +64,9 @@ export default function SuppliersTable() {
         <DataTable columns={getSupplierColumns(openEditModal, setDeleteSupplierId)} data={suppliers} searchKey="name" />
       )}
 
-      <SupplierModal
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleSubmitSupplier}
-        supplierData={supplierData || undefined}
-      />
+      <SupplierModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitSupplier} supplierData={supplierData || undefined} />
 
-      <ConfirmDialog
-        open={!!deleteSupplierId}
-        onConfirm={async () => {
-          if (deleteSupplierId !== null) {
-            await handleDeleteSupplier(deleteSupplierId);
-            setDeleteSupplierId(null);
-          }
-        }}
-        onCancel={() => setDeleteSupplierId(null)}
-        title="Confirm Deletion"
-        description="Are you sure you want to delete this supplier?"
-      />
+      <ConfirmDialog open={!!deleteSupplierId} onConfirm={handleDelete} onCancel={() => setDeleteSupplierId(null)} title="Confirm Deletion" description="Are you sure you want to delete this supplier?" />
     </div>
   );
 }

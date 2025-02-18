@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const BASE_URL = `${API_URL}/api/stores`; // ✅ Matches Laravel routes
+const BASE_URL = `${API_URL}/api/stores`; // ✅ Correct API route
 
 // ✅ Get token from storage
 const getAuthToken = () => sessionStorage.getItem("token") || localStorage.getItem("token");
@@ -19,6 +19,17 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+// ✅ Generic API Error Handler (Returns Validation Errors if any)
+const handleApiError = (error: any) => {
+  console.error("API Error:", error?.response || error);
+
+  if (error.response?.status === 422 && error.response?.data?.errors) {
+    return error.response.data.errors; // ✅ Return validation errors
+  }
+
+  throw new Error(error.response?.data?.message || "An error occurred.");
+};
+
 /**
  * ✅ Fetch all stores
  */
@@ -27,7 +38,7 @@ export const getStores = async () => {
     const response = await axiosInstance.get("/");
     return response.data.stores;
   } catch (error) {
-    throw new Error("Error fetching stores");
+    throw handleApiError(error);
   }
 };
 
@@ -36,10 +47,10 @@ export const getStores = async () => {
  */
 export const addStore = async (storeData: { name: string; location?: string }) => {
   try {
-    const response = await axiosInstance.post("/add", storeData);
+    const response = await axiosInstance.post("/create", storeData);
     return response.data.store;
   } catch (error) {
-    throw new Error("Error adding store");
+    throw handleApiError(error);
   }
 };
 
@@ -51,7 +62,7 @@ export const updateStore = async (storeId: number, storeData: { name: string; lo
     const response = await axiosInstance.put(`/update/${storeId}`, storeData);
     return response.data.store;
   } catch (error) {
-    throw new Error("Error updating store");
+    throw handleApiError(error);
   }
 };
 
@@ -62,6 +73,6 @@ export const deleteStore = async (storeId: number) => {
   try {
     await axiosInstance.delete(`/delete/${storeId}`);
   } catch (error) {
-    throw new Error("Error deleting store");
+    throw handleApiError(error);
   }
 };

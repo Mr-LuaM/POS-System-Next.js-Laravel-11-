@@ -8,136 +8,134 @@ import { z } from "zod";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from "sonner";
-
-interface SupplierModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (values: SupplierSchemaType) => void;
-  supplierData?: SupplierSchemaType | null; // ✅ Allow null
-}
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 /**
- * ✅ Define Supplier Form Schema Using Zod
+ * ✅ Supplier Form Schema (Validation Using Zod)
  */
 const supplierSchema = z.object({
-  name: z.string().min(2, { message: "Supplier name must be at least 2 characters." }),
-  contact: z.string().min(5, { message: "Contact number must be valid." }),
-  email: z
+  name: z
     .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => val === "" || /\S+@\S+\.\S+/.test(val), {
-      message: "Invalid email format.",
-    }),
-  address: z.string().optional().or(z.literal("")),
+    .trim()
+    .min(2, { message: "Supplier name must be at least 2 characters." })
+    .max(100, { message: "Supplier name must not exceed 100 characters." }),
+
+  contact: z
+    .string()
+    .trim()
+    .min(5, { message: "Contact number must be at least 5 digits." })
+    .max(15, { message: "Contact number must not exceed 15 digits." })
+    .regex(/^\d+$/, { message: "Contact number must contain only numbers." }),
+
+  email: z
+    .union([
+      z.string().trim().max(100).email({ message: "Invalid email format." }),
+      z.literal(""),
+    ])
+    .optional(),
+
+  address: z
+    .union([
+      z.string().trim().max(200),
+      z.literal(""),
+    ])
+    .optional(),
 });
 
+/**
+ * ✅ Type Definition for Supplier Data
+ */
 type SupplierSchemaType = z.infer<typeof supplierSchema>;
 
 /**
- * ✅ Supplier Modal with Proper Handling for Optional Fields and Buttons
+ * ✅ Props Interface
+ */
+interface SupplierModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (values: SupplierSchemaType) => Promise<boolean>; // ✅ Returns boolean for success
+  supplierData?: SupplierSchemaType | null;
+}
+
+/**
+ * ✅ Supplier Modal Component (Now with Real-Time Validation)
  */
 export default function SupplierModal({ isOpen, onClose, onSubmit, supplierData }: SupplierModalProps) {
   const form = useForm<SupplierSchemaType>({
     resolver: zodResolver(supplierSchema),
-    defaultValues: {
-      name: "",
-      contact: "",
-      email: "",
-      address: "",
-    },
+    mode: "onChange", // ✅ Real-time validation
+    defaultValues: { name: "", contact: "", email: "", address: "" },
   });
 
-  // ✅ Effect to update form values when editing
+  // ✅ Update form when editing
   useEffect(() => {
-    if (supplierData) {
-      form.reset({
-        name: supplierData.name || "", // ✅ Ensure empty string instead of null
-        contact: supplierData.contact || "",
-        email: supplierData.email || "",
-        address: supplierData.address || "",
-      });
-    } else {
-      form.reset({ name: "", contact: "", email: "", address: "" });
-    }
+    form.reset(supplierData || { name: "", contact: "", email: "", address: "" });
   }, [supplierData, form]);
+
+  /**
+   * ✅ Handle Submit with Validation
+   */
+  const handleSubmit = async (data: SupplierSchemaType) => {
+    const success = await onSubmit(data);
+    if (success) onClose(); // ✅ Close modal only on success
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{supplierData?.name ? "Edit Supplier" : "Add Supplier"}</DialogTitle>
+          <DialogTitle>{supplierData ? "Edit Supplier" : "Add Supplier"}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* ✅ Supplier Name */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supplier Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Supplier Name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {/* ✅ Supplier Name (Real-time validation) */}
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Supplier Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Supplier Name" {...field} />
+                </FormControl>
+                <FormMessage /> {/* ✅ Real-time error message */}
+              </FormItem>
+            )} />
 
-            {/* ✅ Contact Number */}
-            <FormField
-              control={form.control}
-              name="contact"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Contact Number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* ✅ Contact Number (Real-time validation) */}
+            <FormField control={form.control} name="contact" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contact Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Contact Number" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
-            {/* ✅ Email (Optional) */}
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Email" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* ✅ Email (Optional, Real-time validation) */}
+            <FormField control={form.control} name="email" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
-            {/* ✅ Address (Optional) */}
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* ✅ Address (Optional, Real-time validation) */}
+            <FormField control={form.control} name="address" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Address (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Address" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit">{supplierData?.name ? "Update" : "Save"}</Button>
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit">{supplierData ? "Update" : "Save"}</Button>
             </DialogFooter>
           </form>
         </Form>

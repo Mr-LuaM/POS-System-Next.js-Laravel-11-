@@ -4,21 +4,34 @@ import { useState, useEffect, useCallback } from "react";
 import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from "@/services/suppliers";
 import { toast } from "sonner";
 
-export const useSuppliers = () => {
-  const [suppliers, setSuppliers] = useState<{ id: number; name: string; contact: string; email?: string; address?: string }[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isError, setIsError] = useState<boolean>(false);
+/**
+ * ✅ Type Definition for Supplier
+ */
+interface Supplier {
+  id?: number;
+  name: string;
+  contact: string;
+  email?: string;
+  address?: string;
+}
 
-  // ✅ Fetch suppliers from API
+/**
+ * ✅ Custom Hook for Managing Suppliers (TOAST HANDLING HERE ONLY)
+ */
+export const useSuppliers = () => {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * ✅ Fetch Suppliers from API (Handles Toasts)
+   */
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
-    setIsError(false);
     try {
       const data = await getSuppliers();
-      setSuppliers(data);
-    } catch (error) {
-      toast.error("Failed to fetch suppliers");
-      setIsError(true);
+      setSuppliers(data || []);
+    } catch (error: any) {
+      toast.error(`Fetching failed: ${error.message || "Failed to fetch suppliers."}`);
     } finally {
       setLoading(false);
     }
@@ -28,55 +41,45 @@ export const useSuppliers = () => {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
-  // ✅ Add supplier
-  const handleAddSupplier = async (supplierData: { name: string; contact: string; email?: string; address?: string }) => {
-    if (!supplierData.name.trim() || !supplierData.contact.trim()) {
-      toast.error("Name and Contact are required.");
-      return;
-    }
-
+  /**
+   * ✅ Add or Update Supplier (Handles Toasts)
+   */
+  const saveSupplier = async (supplierData: any, id?: number) => {
     try {
-      await addSupplier(supplierData);
-      toast.success("Supplier added successfully");
-      fetchSuppliers();
-    } catch {
-      toast.error("Failed to add supplier");
+      if (id) {
+        await updateSupplier(id, supplierData);
+        toast.success("Supplier updated successfully.");
+      } else {
+        await addSupplier(supplierData);
+        toast.success("Supplier added successfully.");
+      }
+      fetchSuppliers(); // ✅ Refresh supplier list after saving
+    } catch (error: any) {
+      if (error?.email) {
+        error.email.forEach((err: string) => toast.error(`Saving failed: ${err}`)); // ✅ Show validation errors
+      } else {
+        toast.error(`Saving failed: ${error.message || "An error occurred."}`);
+      }
     }
   };
 
-  // ✅ Update supplier
-  const handleUpdateSupplier = async (id: number, supplierData: { name: string; contact: string; email?: string; address?: string }) => {
-    if (!supplierData.name.trim() || !supplierData.contact.trim()) {
-      toast.error("Name and Contact are required.");
-      return;
-    }
-
-    try {
-      await updateSupplier(id, supplierData);
-      toast.success("Supplier updated successfully");
-      fetchSuppliers();
-    } catch {
-      toast.error("Failed to update supplier");
-    }
-  };
-
-  // ✅ Delete supplier
+  /**
+   * ✅ Delete Supplier (Handles Toasts)
+   */
   const handleDeleteSupplier = async (id: number) => {
     try {
       await deleteSupplier(id);
-      toast.success("Supplier deleted successfully");
       fetchSuppliers();
-    } catch {
-      toast.error("Failed to delete supplier");
+      toast.success("Supplier deleted successfully.");
+    } catch (error: any) {
+      toast.error(`Deletion failed: ${error.message || "Failed to delete supplier."}`);
     }
   };
 
   return {
     suppliers,
     loading,
-    isError,
-    handleAddSupplier,
-    handleUpdateSupplier,
+    saveSupplier,
     handleDeleteSupplier,
     refreshSuppliers: fetchSuppliers,
   };

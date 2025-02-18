@@ -30,20 +30,29 @@ export default function StoresTable() {
     setModalOpen(true);
   };
 
-  // ✅ Handle Submit
+ 
   const handleSubmitStore = async (data: any) => {
     try {
       if (storeData?.id) {
         await handleUpdateStore(storeData.id, data);
+        toast.success("Store updated successfully"); // ✅ Show only if no validation errors
       } else {
         await handleAddStore(data);
+        toast.success("Store added successfully"); // ✅ Show only if no validation errors
       }
-      toast.success("Store saved successfully!");
       setModalOpen(false);
-    } catch {
-      toast.error("Failed to save store.");
+    } catch (error: any) {
+      if (error.response?.status === 422) {
+        // ✅ Set validation errors in the form
+        Object.entries(error.response.data.errors).forEach(([field, messages]) => {
+          form.setError(field as any, { message: (messages as string[])[0] });
+        });
+      } else {
+        toast.error("Failed to save store.");
+      }
     }
   };
+  
 
   return (
     <div className="w-full p-6 space-y-6">
