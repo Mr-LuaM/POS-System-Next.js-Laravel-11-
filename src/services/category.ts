@@ -2,34 +2,65 @@ import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+// ✅ Get token from storage
+const getAuthToken = () => sessionStorage.getItem("token") || localStorage.getItem("token");
+
+// ✅ Axios instance with Authorization header
+const axiosInstance = axios.create({
+  baseURL: `${API_URL}/api`,
+  headers: { "Content-Type": "application/json" },
+});
+
+// ✅ Add auth token before requests
+axiosInstance.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 /**
- * Fetch all categories.
+ * ✅ Fetch all categories
  */
 export const getCategories = async () => {
-  return axios.get(`${API_URL}/api/categories`);
+  try {
+    const response = await axiosInstance.get("/categories");
+    return response.data.categories; // Return only categories
+  } catch (error) {
+    throw new Error("Error fetching categories");
+  }
 };
 
 /**
- * Add a new category.
- * @param categoryData Category details to be added.
+ * ✅ Add a new category
  */
-export const addCategory = async (categoryData: { name: string }) => {
-  return axios.post(`${API_URL}/api/categories/add`, categoryData);
+export const addCategory = async (categoryName: string) => {
+  try {
+    const response = await axiosInstance.post("/categories/add", { name: categoryName });
+    return response.data.category; // Return added category
+  } catch (error) {
+    throw new Error("Error adding category");
+  }
 };
 
 /**
- * Update a category.
- * @param categoryId ID of the category to be updated.
- * @param categoryData Updated category details.
+ * ✅ Update a category
  */
-export const updateCategory = async (categoryId: number, categoryData: { name: string }) => {
-  return axios.put(`${API_URL}/api/categories/update/${categoryId}`, categoryData);
+export const updateCategory = async (categoryId: number, categoryName: string) => {
+  try {
+    const response = await axiosInstance.put(`/categories/update/${categoryId}`, { name: categoryName });
+    return response.data.category; // Return updated category
+  } catch (error) {
+    throw new Error("Error updating category");
+  }
 };
 
 /**
- * Delete a category.
- * @param categoryId ID of the category to be deleted.
+ * ✅ Delete a category
  */
 export const deleteCategory = async (categoryId: number) => {
-  return axios.delete(`${API_URL}/api/categories/delete/${categoryId}`);
+  try {
+    await axiosInstance.delete(`/categories/delete/${categoryId}`);
+  } catch (error) {
+    throw new Error("Error deleting category");
+  }
 };
