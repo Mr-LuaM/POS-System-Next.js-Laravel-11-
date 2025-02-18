@@ -78,6 +78,22 @@ body {
   }
 }
 
+.custom-toast[data-type="success"] {
+  background-color: #4caf50 !important; /* Green */
+  color: white !important;
+}
+
+.custom-toast[data-type="error"] {
+  background-color: #ff4d4d !important; /* Red */
+  color: white !important;
+}
+
+.custom-toast[data-type="warning"] {
+  background-color: #ff9800 !important; /* Orange */
+  color: white !important;
+}
+
+
 @layer base {
   * {
     @apply border-border;

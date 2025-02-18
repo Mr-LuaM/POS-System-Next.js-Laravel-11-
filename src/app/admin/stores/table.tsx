@@ -7,52 +7,33 @@ import { getStoreColumns } from "./columns";
 import StoreModal from "./store-modal";
 import ConfirmDialog from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 /**
  * ✅ Stores Table (Handles Full CRUD)
  */
 export default function StoresTable() {
-  const { stores, loading, handleAddStore, handleUpdateStore, handleDeleteStore } = useStores();
+  const { stores, loading, saveStore, handleDeleteStore } = useStores();
   const [storeData, setStoreData] = useState<{ id?: number; name: string; location?: string } | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [deleteStoreId, setDeleteStoreId] = useState<number | null>(null);
 
   // ✅ Open Add Modal
   const openAddModal = () => {
-    setStoreData({ name: "", location: "" });
+    setStoreData(null); // ✅ Reset form for adding a new store
     setModalOpen(true);
   };
 
   // ✅ Open Edit Modal
-  const openEditModal = (store: any) => {
+  const openEditModal = (store: { id: number; name: string; location?: string }) => {
     setStoreData(store);
     setModalOpen(true);
   };
 
- 
-  const handleSubmitStore = async (data: any) => {
-    try {
-      if (storeData?.id) {
-        await handleUpdateStore(storeData.id, data);
-        toast.success("Store updated successfully"); // ✅ Show only if no validation errors
-      } else {
-        await handleAddStore(data);
-        toast.success("Store added successfully"); // ✅ Show only if no validation errors
-      }
-      setModalOpen(false);
-    } catch (error: any) {
-      if (error.response?.status === 422) {
-        // ✅ Set validation errors in the form
-        Object.entries(error.response.data.errors).forEach(([field, messages]) => {
-          form.setError(field as any, { message: (messages as string[])[0] });
-        });
-      } else {
-        toast.error("Failed to save store.");
-      }
-    }
+  // ✅ Handle Add or Update Store
+  const handleSubmitStore = async (data: { name: string; location?: string }) => {
+    await saveStore(data, storeData?.id);
+    setModalOpen(false); // ✅ Close modal only after successful save
   };
-  
 
   return (
     <div className="w-full p-6 space-y-6">
