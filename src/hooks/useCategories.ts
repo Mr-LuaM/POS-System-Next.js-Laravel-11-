@@ -9,7 +9,7 @@ export const useCategories = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
 
-  // ✅ Fetch categories from API (memoized to avoid unnecessary re-creations)
+  // ✅ Fetch categories from API (Optimized)
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     setIsError(false);
@@ -17,7 +17,7 @@ export const useCategories = () => {
       const data = await getCategories();
       setCategories(data);
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Error fetching categories:", error);
       toast.error("Failed to fetch categories");
       setIsError(true);
     } finally {
@@ -29,40 +29,50 @@ export const useCategories = () => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // ✅ Add category & update state without re-fetching everything
+  // ✅ Add category (Auto-Refresh Table)
   const handleAddCategory = async (categoryName: string) => {
+    const trimmedName = categoryName.trim();
+    if (!trimmedName) {
+      toast.error("Category name cannot be empty.");
+      return;
+    }
+
     try {
-      const newCategory = await addCategory(categoryName);
-      setCategories((prev) => [...prev, newCategory]); // Update state directly
+      await addCategory(trimmedName);
       toast.success("Category added successfully");
+      fetchCategories(); // ✅ Auto-refresh table
     } catch (error) {
-      console.error("Add error:", error);
+      console.error("Error adding category:", error);
       toast.error("Failed to add category");
     }
   };
 
-  // ✅ Update category & update state without full re-fetch
+  // ✅ Update category (Auto-Refresh Table)
   const handleUpdateCategory = async (id: number, categoryName: string) => {
+    const trimmedName = categoryName.trim();
+    if (!trimmedName) {
+      toast.error("Category name cannot be empty.");
+      return;
+    }
+
     try {
-      await updateCategory(id, categoryName);
-      setCategories((prev) =>
-        prev.map((cat) => (cat.id === id ? { ...cat, name: categoryName } : cat))
-      );
+      await updateCategory(id, trimmedName);
       toast.success("Category updated successfully");
+      fetchCategories(); // ✅ Auto-refresh table
     } catch (error) {
-      console.error("Update error:", error);
+      console.error("Error updating category:", error);
       toast.error("Failed to update category");
     }
   };
 
-  // ✅ Delete category & update state without full re-fetch
+  // ✅ Delete category (Auto-Refresh Table)
   const handleDeleteCategory = async (id: number) => {
     try {
       await deleteCategory(id);
-      setCategories((prev) => prev.filter((cat) => cat.id !== id));
       toast.success("Category deleted successfully");
+      fetchCategories(); // ✅ Auto-refresh table
     } catch (error) {
-      console.error("Delete error:", error);
+      console.error("Error deleting category:", error);
       toast.error("Failed to delete category");
     }
   };
@@ -74,6 +84,6 @@ export const useCategories = () => {
     handleAddCategory,
     handleUpdateCategory,
     handleDeleteCategory,
-    refreshCategories: fetchCategories, // ✅ Expose `refreshCategories`
+    refreshCategories: fetchCategories,
   };
 };

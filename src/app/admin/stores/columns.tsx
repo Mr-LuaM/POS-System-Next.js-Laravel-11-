@@ -5,16 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash } from "lucide-react";
 
 /**
- * ✅ Category Table Columns (Handles CRUD Actions)
+ * ✅ Store Table Columns (Handles CRUD Actions)
  */
-export const getCategoryColumns = (
-  handleEdit: (category: { id: number; name: string }) => void,
+export const getStoreColumns = (
+  handleEdit: (store: { id: number; name: string; location?: string }) => void,
   handleDelete: (id: number) => void
-): ColumnDef<{ id: number; name: string }>[] => [
+): ColumnDef<{ id: number; name: string; location?: string }>[] => [
   {
     accessorKey: "name",
-    header: "Category Name",
+    header: "Store Name",
     cell: ({ row }) => <span className="text-foreground font-medium">{row.original.name}</span>,
+  },
+  {
+    accessorKey: "location",
+    header: "Location",
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.location || "N/A"}</span>,
   },
   {
     id: "actions",
