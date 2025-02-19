@@ -1,86 +1,116 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from "@/services/suppliers";
+import { 
+  getSuppliers, 
+  addSupplier, 
+  updateSupplier, 
+  deleteSupplier, 
+  archiveSupplier, 
+  restoreSupplier, 
+  Supplier 
+} from "@/services/suppliers";
 import { toast } from "sonner";
 
 /**
- * ✅ Type Definition for Supplier
- */
-interface Supplier {
-  id?: number;
-  name: string;
-  contact: string;
-  email?: string;
-  address?: string;
-}
-
-/**
- * ✅ Custom Hook for Managing Suppliers (TOAST HANDLING HERE ONLY)
+ * ✅ Custom Hook for Managing Suppliers (Supports Active & Archived Suppliers)
  */
 export const useSuppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
+  const [archivedFilter, setArchivedFilter] = useState<string | null>(null); // ✅ NULL = fetch all suppliers
 
   /**
-   * ✅ Fetch Suppliers from API (Handles Toasts)
+   * ✅ Fetch Suppliers from API (Supports Active, Archived & All Suppliers)
    */
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
+    setIsError(false);
     try {
-      const data = await getSuppliers();
-      setSuppliers(data || []);
+      const data = await getSuppliers(archivedFilter); // ✅ Pass filter dynamically
+      setSuppliers(data);
     } catch (error: any) {
-      toast.error(`Fetching failed: ${error.message || "Failed to fetch suppliers."}`);
+      toast.error(`Error: ${error.message || "Failed to fetch suppliers."}`);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [archivedFilter]);
 
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
   /**
-   * ✅ Add or Update Supplier (Handles Toasts)
+   * ✅ Add or Update Supplier (With Validation & Auto-Refresh)
    */
-  const saveSupplier = async (supplierData: any, id?: number) => {
+  const saveSupplier = async (supplierData: Partial<Supplier>, id?: number): Promise<boolean> => {
     try {
       if (id) {
         await updateSupplier(id, supplierData);
-        toast.success("Supplier updated successfully.");
+        toast.success("Success: Supplier updated successfully.");
       } else {
-        await addSupplier(supplierData);
-        toast.success("Supplier added successfully.");
+        await addSupplier(supplierData as Supplier);
+        toast.success("Success: Supplier added successfully.");
       }
-      fetchSuppliers(); // ✅ Refresh supplier list after saving
+      fetchSuppliers();
+      return true;
     } catch (error: any) {
-      if (error?.email) {
-        error.email.forEach((err: string) => toast.error(`Saving failed: ${err}`)); // ✅ Show validation errors
-      } else {
-        toast.error(`Saving failed: ${error.message || "An error occurred."}`);
-      }
+      toast.error(`Error: ${error.message || "Failed to save supplier."}`);
+      return false;
     }
   };
 
   /**
-   * ✅ Delete Supplier (Handles Toasts)
+   * ✅ Archive (Soft Delete) Supplier
+   */
+  const handleArchiveSupplier = async (id: number) => {
+    try {
+      await archiveSupplier(id);
+      toast.success("Success: Supplier archived successfully.");
+      fetchSuppliers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to archive supplier."}`);
+    }
+  };
+
+  /**
+   * ✅ Restore Supplier
+   */
+  const handleRestoreSupplier = async (id: number) => {
+    try {
+      await restoreSupplier(id);
+      toast.success("Success: Supplier restored successfully.");
+      fetchSuppliers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to restore supplier."}`);
+    }
+  };
+
+  /**
+   * ✅ Permanently Delete Supplier (Only if Archived)
    */
   const handleDeleteSupplier = async (id: number) => {
     try {
       await deleteSupplier(id);
+      toast.success("Success: Supplier permanently deleted.");
       fetchSuppliers();
-      toast.success("Supplier deleted successfully.");
     } catch (error: any) {
-      toast.error(`Deletion failed: ${error.message || "Failed to delete supplier."}`);
+      toast.error(`Error: ${error.message || "Failed to delete supplier."}`);
     }
   };
 
   return {
     suppliers,
     loading,
+    isError,
     saveSupplier,
+    handleArchiveSupplier,
+    handleRestoreSupplier,
     handleDeleteSupplier,
     refreshSuppliers: fetchSuppliers,
+    archivedFilter, // ✅ Expose archived filter
+    setArchivedFilter, // ✅ Expose filter setter
   };
 };

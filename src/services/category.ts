@@ -1,66 +1,56 @@
-import axios from "axios";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
-// ✅ Get token from storage
-const getAuthToken = () => sessionStorage.getItem("token") || localStorage.getItem("token");
-
-// ✅ Axios instance with Authorization header
-const axiosInstance = axios.create({
-  baseURL: `${API_URL}/api`,
-  headers: { "Content-Type": "application/json" },
-});
-
-// ✅ Add auth token before requests
-axiosInstance.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+import { axiosInstance, handleApiError } from "@/lib/apiService";
 
 /**
- * ✅ Fetch all categories
+ * ✅ Category Type Definition
  */
-export const getCategories = async () => {
+export interface Category {
+  id: number;
+  name: string;
+}
+
+/**
+ * ✅ Fetch All Categories
+ */
+export const getCategories = async (): Promise<Category[]> => {
   try {
     const response = await axiosInstance.get("/categories");
-    return response.data.categories; // Return only categories
+    return response.data.data;
   } catch (error) {
-    throw new Error("Error fetching categories");
+    throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Add a new category
+ * ✅ Add a New Category
  */
-export const addCategory = async (categoryName: string) => {
+export const addCategory = async (categoryName: string): Promise<Category> => {
   try {
     const response = await axiosInstance.post("/categories/add", { name: categoryName });
-    return response.data.category; // Return added category
+    return response.data.data;
   } catch (error) {
-    throw new Error("Error adding category");
+    throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Update a category
+ * ✅ Update a Category
  */
-export const updateCategory = async (categoryId: number, categoryName: string) => {
+export const updateCategory = async (categoryId: number, categoryName: string): Promise<Category> => {
   try {
     const response = await axiosInstance.put(`/categories/update/${categoryId}`, { name: categoryName });
-    return response.data.category; // Return updated category
+    return response.data.data;
   } catch (error) {
-    throw new Error("Error updating category");
+    throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Delete a category
+ * ✅ Delete a Category
  */
-export const deleteCategory = async (categoryId: number) => {
+export const deleteCategory = async (categoryId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/categories/delete/${categoryId}`);
   } catch (error) {
-    throw new Error("Error deleting category");
+    throw handleApiError(error);
   }
 };

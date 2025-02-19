@@ -1,77 +1,83 @@
-import axios from "axios";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const BASE_URL = `${API_URL}/api/stores`; // ✅ Correct API route
-
-// ✅ Get token from storage
-const getAuthToken = () => sessionStorage.getItem("token") || localStorage.getItem("token");
-
-// ✅ Axios instance with Authorization header
-const axiosInstance = axios.create({
-  baseURL: BASE_URL,
-  headers: { "Content-Type": "application/json" },
-});
-
-// ✅ Add auth token before requests
-axiosInstance.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// ✅ Generic API Error Handler (Returns Validation Errors if any)
-const handleApiError = (error: any) => {
-  console.error("API Error:", error?.response || error);
-
-  if (error.response?.status === 422 && error.response?.data?.errors) {
-    return error.response.data.errors; // ✅ Return validation errors
-  }
-
-  throw new Error(error.response?.data?.message || "An error occurred.");
-};
+import { axiosInstance, handleApiError } from "@/lib/apiService";
 
 /**
- * ✅ Fetch all stores
+ * ✅ Store Type Definition (Includes Soft Delete `deleted_at`)
  */
-export const getStores = async () => {
+export interface Store {
+  id: number;
+  name: string;
+  location?: string;
+  created_at?: string;
+  deleted_at?: string | null; // ✅ For soft-deleted stores
+}
+
+/**
+ * ✅ Fetch All Stores (Supports Active, Archived & All Stores)
+ */
+export const getStores = async (archived: "true" | "false" | "all" = "all"): Promise<Store[]> => {
   try {
-    const response = await axiosInstance.get("/");
-    return response.data.stores;
+    const response = await axiosInstance.get("/stores", {
+      params: { archived }, // ✅ Pass query param for archived filter
+    });
+    return response.data.data;
   } catch (error) {
     throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Add a new store
+ * ✅ Add a New Store
  */
-export const addStore = async (storeData: { name: string; location?: string }) => {
+export const addStore = async (storeData: Omit<Store, "id" | "created_at" | "deleted_at">): Promise<Store> => {
   try {
-    const response = await axiosInstance.post("/create", storeData);
-    return response.data.store;
+    const response = await axiosInstance.post("/stores/create", storeData);
+    return response.data.data;
   } catch (error) {
     throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Update a store
+ * ✅ Update a Store
  */
-export const updateStore = async (storeId: number, storeData: { name: string; location?: string }) => {
+export const updateStore = async (storeId: number, storeData: Partial<Omit<Store, "created_at" | "deleted_at">>): Promise<Store> => {
   try {
-    const response = await axiosInstance.put(`/update/${storeId}`, storeData);
-    return response.data.store;
+    const response = await axiosInstance.put(`/stores/update/${storeId}`, storeData);
+    return response.data.data;
   } catch (error) {
     throw handleApiError(error);
   }
 };
 
 /**
- * ✅ Delete a store
+ * ✅ Archive (Soft Delete) a Store
  */
-export const deleteStore = async (storeId: number) => {
+export const archiveStore = async (storeId: number): Promise<void> => {
   try {
-    await axiosInstance.delete(`/delete/${storeId}`);
+    await axiosInstance.delete(`/stores/archive/${storeId}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * ✅ Restore an Archived Store
+ */
+export const restoreStore = async (storeId: number): Promise<Store> => {
+  try {
+    const response = await axiosInstance.put(`/stores/restore/${storeId}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/**
+ * ✅ Permanently Delete a Store (Only If Archived)
+ */
+export const deleteStore = async (storeId: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/stores/delete/${storeId}`);
   } catch (error) {
     throw handleApiError(error);
   }

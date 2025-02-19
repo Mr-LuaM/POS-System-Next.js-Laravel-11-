@@ -1,24 +1,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getCategories, addCategory, updateCategory, deleteCategory } from "@/services/category";
+import { getCategories, addCategory, updateCategory, deleteCategory, Category } from "@/services/category";
 import { toast } from "sonner";
 
+/**
+ * ✅ Custom Hook for Managing Categories
+ */
 export const useCategories = () => {
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
 
-  // ✅ Fetch categories from API (Optimized)
+  /**
+   * ✅ Fetch Categories from API
+   */
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     setIsError(false);
     try {
       const data = await getCategories();
       setCategories(data);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      toast.error("Failed to fetch categories");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to fetch categories.");
       setIsError(true);
     } finally {
       setLoading(false);
@@ -29,7 +33,9 @@ export const useCategories = () => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // ✅ Add category (Auto-Refresh Table)
+  /**
+   * ✅ Add Category (With Validation & Auto-Refresh)
+   */
   const handleAddCategory = async (categoryName: string) => {
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
@@ -39,15 +45,16 @@ export const useCategories = () => {
 
     try {
       await addCategory(trimmedName);
-      toast.success("Category added successfully");
-      fetchCategories(); // ✅ Auto-refresh table
-    } catch (error) {
-      console.error("Error adding category:", error);
-      toast.error("Failed to add category");
+      toast.success("Category added successfully.");
+      fetchCategories();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add category.");
     }
   };
 
-  // ✅ Update category (Auto-Refresh Table)
+  /**
+   * ✅ Update Category (With Auto-Refresh)
+   */
   const handleUpdateCategory = async (id: number, categoryName: string) => {
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
@@ -57,23 +64,23 @@ export const useCategories = () => {
 
     try {
       await updateCategory(id, trimmedName);
-      toast.success("Category updated successfully");
-      fetchCategories(); // ✅ Auto-refresh table
-    } catch (error) {
-      console.error("Error updating category:", error);
-      toast.error("Failed to update category");
+      toast.success("Category updated successfully.");
+      fetchCategories();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update category.");
     }
   };
 
-  // ✅ Delete category (Auto-Refresh Table)
+  /**
+   * ✅ Delete Category (With Auto-Refresh)
+   */
   const handleDeleteCategory = async (id: number) => {
     try {
       await deleteCategory(id);
-      toast.success("Category deleted successfully");
-      fetchCategories(); // ✅ Auto-refresh table
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      toast.error("Failed to delete category");
+      toast.success("Category deleted successfully.");
+      fetchCategories();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete category.");
     }
   };
 

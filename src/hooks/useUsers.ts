@@ -1,78 +1,132 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getUsers, addUser, updateUser, deleteUser } from "@/services/users";
+import {
+  getUsers,
+  addUser,
+  updateUser,
+  archiveUser,
+  restoreUser,
+  deleteUser,
+  updateUserRole,
+  User,
+} from "@/services/users";
 import { toast } from "sonner";
 
 /**
- * ✅ User Type Definition
- */
-interface User {
-  id?: number;
-  name: string;
-  email: string;
-  role: "admin" | "cashier" | "manager";
-  password?: string;
-}
-
-/**
- * ✅ Custom Hook for Managing Users
+ * ✅ Custom Hook for Managing Users (Supports Active & Archived Users)
  */
 export const useUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
+  const [archivedFilter, setArchivedFilter] = useState<string | null>(null); // ✅ NULL = fetch all users
 
-  // ✅ Fetch Users
+  /**
+   * ✅ Fetch Users from API (Supports Active, Archived & All Users)
+   */
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setIsError(false);
     try {
-      const data = await getUsers();
-      setUsers(data || []);
+      const data = await getUsers(archivedFilter); // ✅ Pass filter dynamically
+      setUsers(data);
     } catch (error: any) {
-      toast.error(`Fetching failed: ${error.message || "Failed to fetch users."}`);
+      toast.error(`Error: ${error.message || "Failed to fetch users."}`);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [archivedFilter]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-  
-  const saveUser = async (userData: Partial<User>, id?: number) => {
+
+  /**
+   * ✅ Add or Update User (With Validation & Auto-Refresh)
+   */
+  const saveUser = async (userData: Partial<User> & { password?: string }, id?: number): Promise<boolean> => {
     try {
       if (id) {
-        if (!userData.password) delete userData.password; // ✅ Exclude password if empty
+        if (!userData.password) delete userData.password; // ✅ Exclude empty password
         await updateUser(id, userData);
-        toast.success("User updated successfully.");
+        toast.success("Success: User updated successfully.");
       } else {
-        await addUser(userData);
-        toast.success("User added successfully.");
+        await addUser(userData as User & { password: string });
+        toast.success("Success: User added successfully.");
       }
       fetchUsers();
+      return true;
     } catch (error: any) {
-      // ✅ Extract validation errors (422)
-      if (error.response?.status === 422) {
-        const validationErrors = error.response.data.errors;
-        Object.entries(validationErrors).forEach(([field, messages]) => {
-          (messages as string[]).forEach((message) => toast.error(`${message}`));
-        });
-      } else {
-        toast.error(`Saving failed: ${error.message || "An error occurred."}`);
-      }
-    }
-  };
-  
-  // ✅ Delete User
-  const handleDeleteUser = async (id: number) => {
-    try {
-      await deleteUser(id);
-      toast.success("User deleted successfully.");
-      fetchUsers();
-    } catch (error: any) {
-      toast.error(`Deletion failed: ${error.message || "Failed to delete user."}`);
+      toast.error(`Error: ${error.message || "Failed to save user."}`);
+      return false;
     }
   };
 
-  return { users, loading, saveUser, handleDeleteUser, refreshUsers: fetchUsers };
+  /**
+   * ✅ Archive (Soft Delete) User
+   */
+  const handleArchiveUser = async (id: number) => {
+    try {
+      await archiveUser(id);
+      toast.success("Success: User archived successfully.");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to archive user."}`);
+    }
+  };
+
+  /**
+   * ✅ Restore User
+   */
+  const handleRestoreUser = async (id: number) => {
+    try {
+      await restoreUser(id);
+      toast.success("Success: User restored successfully.");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to restore user."}`);
+    }
+  };
+
+  /**
+   * ✅ Permanently Delete User (Only if Archived)
+   */
+  const handleDeleteUser = async (id: number) => {
+    try {
+      await deleteUser(id);
+      toast.success("Success: User permanently deleted.");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to delete user."}`);
+    }
+  };
+
+  /**
+   * ✅ Update User Role
+   */
+  const handleUpdateUserRole = async (id: number, role: "admin" | "cashier" | "manager") => {
+    try {
+      await updateUserRole(id, role);
+      toast.success("Success: User role updated successfully.");
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(`Error: ${error.message || "Failed to update user role."}`);
+    }
+  };
+
+  return {
+    users,
+    loading,
+    isError,
+    saveUser,
+    handleArchiveUser,
+    handleRestoreUser,
+    handleDeleteUser,
+    handleUpdateUserRole,
+    refreshUsers: fetchUsers,
+    archivedFilter, // ✅ Expose archived filter
+    setArchivedFilter, // ✅ Expose filter setter
+  };
 };

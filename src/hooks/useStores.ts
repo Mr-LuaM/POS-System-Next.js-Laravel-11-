@@ -1,21 +1,29 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getStores, addStore, updateStore, deleteStore } from "@/services/stores";
+import { getStores, addStore, updateStore, deleteStore, Store } from "@/services/stores";
 import { toast } from "sonner";
 
+/**
+ * ✅ Custom Hook for Managing Stores
+ */
 export const useStores = () => {
-  const [stores, setStores] = useState<{ id: number; name: string; location?: string }[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
 
-  // ✅ Fetch stores from API
+  /**
+   * ✅ Fetch Stores from API
+   */
   const fetchStores = useCallback(async () => {
     setLoading(true);
+    setIsError(false);
     try {
       const data = await getStores();
       setStores(data);
     } catch (error: any) {
-      toast.error(`Fetching failed: ${error.message || "Failed to fetch stores."}`);
+      toast.error(`Error: ${error.message || "Failed to fetch stores."}`);
+      setIsError(true);
     } finally {
       setLoading(false);
     }
@@ -25,35 +33,38 @@ export const useStores = () => {
     fetchStores();
   }, [fetchStores]);
 
-  const saveStore = async (storeData: { name: string; location?: string }, id?: number) => {
+  /**
+   * ✅ Add or Update Store (With Validation & Auto-Refresh)
+   */
+  const saveStore = async (storeData: Omit<Store, "id">, id?: number): Promise<boolean> => {
     try {
       if (id) {
         await updateStore(id, storeData);
-        toast.success("Store updated successfully.");
+        toast.success("Success: Store updated successfully.");
       } else {
         await addStore(storeData);
-        toast.success("Store added successfully.");
+        toast.success("Success: Store added successfully.");
       }
-      fetchStores(); // ✅ Refresh store list after saving
+      fetchStores(); // ✅ Auto-refresh after save
+      return true;
     } catch (error: any) {
-      if (error?.name) {
-        error.name.forEach((err: string) => toast.error(`Saving failed: ${err}`)); // ✅ Show validation errors
-      } else {
-        toast.error(`Saving failed: ${error.message || "An error occurred."}`);
-      }
+      toast.error(`Error: ${error.message || "Failed to save store."}`);
+      return false;
     }
   };
 
-  // ✅ Delete store
+  /**
+   * ✅ Delete Store (With Auto-Refresh)
+   */
   const handleDeleteStore = async (id: number) => {
     try {
       await deleteStore(id);
+      toast.success("Success: Store deleted successfully.");
       fetchStores();
-      toast.success("Store deleted successfully.");
     } catch (error: any) {
-      toast.error(`Deletion failed: ${error.message || "Failed to delete store."}`);
+      toast.error(`Error: ${error.message || "Failed to delete store."}`);
     }
   };
 
-  return { stores, loading, saveStore, handleDeleteStore, refreshStores: fetchStores };
+  return { stores, loading, isError, saveStore, handleDeleteStore, refreshStores: fetchStores };
 };

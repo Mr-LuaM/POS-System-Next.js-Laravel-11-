@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -14,31 +14,27 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
  * ✅ Supplier Form Schema (Validation Using Zod)
  */
 const supplierSchema = z.object({
-  name: z
-    .string()
+  name: z.string()
     .trim()
     .min(2, { message: "Supplier name must be at least 2 characters." })
     .max(100, { message: "Supplier name must not exceed 100 characters." }),
 
-  contact: z
-    .string()
+  contact: z.string()
     .trim()
     .min(5, { message: "Contact number must be at least 5 digits." })
     .max(15, { message: "Contact number must not exceed 15 digits." })
     .regex(/^\d+$/, { message: "Contact number must contain only numbers." }),
 
-  email: z
-    .union([
-      z.string().trim().max(100).email({ message: "Invalid email format." }),
-      z.literal(""),
-    ])
+  email: z.string()
+    .trim()
+    .max(100)
+    .email({ message: "Invalid email format." })
     .optional(),
 
-  address: z
-    .union([
-      z.string().trim().max(200),
-      z.literal(""),
-    ])
+  address: z.string()
+    .trim()
+    .max(200)
+    .nullable() // ✅ Allow `null` as a valid value
     .optional(),
 });
 
@@ -58,25 +54,34 @@ interface SupplierModalProps {
 }
 
 /**
- * ✅ Supplier Modal Component (Now with Real-Time Validation)
+ * ✅ Supplier Modal Component (With Real-Time Validation & Loading State)
  */
 export default function SupplierModal({ isOpen, onClose, onSubmit, supplierData }: SupplierModalProps) {
+  const [loading, setLoading] = useState(false); // ✅ Added loading state
+
   const form = useForm<SupplierSchemaType>({
     resolver: zodResolver(supplierSchema),
-    mode: "onChange", // ✅ Real-time validation
+    mode: "onChange",
     defaultValues: { name: "", contact: "", email: "", address: "" },
   });
 
-  // ✅ Update form when editing
+  // ✅ Update form when editing, replacing `null` with empty strings
   useEffect(() => {
-    form.reset(supplierData || { name: "", contact: "", email: "", address: "" });
+    form.reset({
+      name: supplierData?.name || "",
+      contact: supplierData?.contact || "",
+      email: supplierData?.email || "",
+      address: supplierData?.address ?? "", // ✅ Convert `null` to empty string before validation
+    });
   }, [supplierData, form]);
 
   /**
-   * ✅ Handle Submit with Validation
+   * ✅ Handle Submit with Validation & Loading State
    */
   const handleSubmit = async (data: SupplierSchemaType) => {
+    setLoading(true); // ✅ Start loading state
     const success = await onSubmit(data);
+    setLoading(false); // ✅ Stop loading state
     if (success) onClose(); // ✅ Close modal only on success
   };
 
@@ -89,29 +94,35 @@ export default function SupplierModal({ isOpen, onClose, onSubmit, supplierData 
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {/* ✅ Supplier Name (Real-time validation) */}
+            {/* ✅ Supplier Name */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
                 <FormLabel>Supplier Name</FormLabel>
                 <FormControl>
                   <Input placeholder="Supplier Name" {...field} />
                 </FormControl>
-                <FormMessage /> {/* ✅ Real-time error message */}
+                <FormMessage />
               </FormItem>
             )} />
 
-            {/* ✅ Contact Number (Real-time validation) */}
+            {/* ✅ Contact Number (Numbers Only) */}
             <FormField control={form.control} name="contact" render={({ field }) => (
               <FormItem>
                 <FormLabel>Contact Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Contact Number" {...field} />
+                  <Input 
+                    type="tel"
+                    placeholder="Contact Number" 
+                    {...field}
+                    onInput={(e) => (e.target.value = e.target.value.replace(/\D/g, ""))} // ✅ Remove non-numeric characters dynamically
+                    pattern="\d*"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )} />
 
-            {/* ✅ Email (Optional, Real-time validation) */}
+            {/* ✅ Email (Optional) */}
             <FormField control={form.control} name="email" render={({ field }) => (
               <FormItem>
                 <FormLabel>Email (Optional)</FormLabel>
@@ -122,7 +133,7 @@ export default function SupplierModal({ isOpen, onClose, onSubmit, supplierData 
               </FormItem>
             )} />
 
-            {/* ✅ Address (Optional, Real-time validation) */}
+            {/* ✅ Address (Optional) */}
             <FormField control={form.control} name="address" render={({ field }) => (
               <FormItem>
                 <FormLabel>Address (Optional)</FormLabel>
@@ -133,9 +144,14 @@ export default function SupplierModal({ isOpen, onClose, onSubmit, supplierData 
               </FormItem>
             )} />
 
+            {/* ✅ Footer with Cancel & Save Buttons */}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit">{supplierData ? "Update" : "Save"}</Button>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : supplierData ? "Update" : "Save"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * ✅ Define User Schema Using Zod (Validation)
@@ -31,7 +32,7 @@ type UserSchemaType = z.infer<typeof userSchema>;
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (values: UserSchemaType) => void;
+  onSubmit: (values: UserSchemaType) => Promise<boolean>; // ✅ Returns boolean for success
   userData?: Partial<UserSchemaType> | null;
 }
 
@@ -39,6 +40,8 @@ interface UserModalProps {
  * ✅ User Modal Component (Add & Edit User)
  */
 export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserModalProps) {
+  const [loading, setLoading] = useState(false); // ✅ Added loading state
+
   const form = useForm<UserSchemaType>({
     resolver: zodResolver(userSchema),
     mode: "onChange",
@@ -55,20 +58,31 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserM
     form.reset({
       name: userData?.name || "",
       email: userData?.email || "",
-      password: "", // Empty password when editing
+      password: "", // ✅ Exclude password when editing
       role: userData?.role || "cashier",
     });
   }, [userData, form]);
 
+  /**
+   * ✅ Handle Submit with Loading State
+   */
+  const handleSubmit = async (data: UserSchemaType) => {
+    setLoading(true); // ✅ Start loading
+    const success = await onSubmit(data);
+    setLoading(false); // ✅ Stop loading
+
+    if (success) onClose(); // ✅ Close modal only on success
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={!loading ? onClose : undefined}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{userData ? "Edit User" : "Add User"}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
                 <FormLabel>User Name</FormLabel>
@@ -89,6 +103,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserM
               </FormItem>
             )} />
 
+            {/* ✅ Only Show Password Field for New Users */}
             {!userData && (
               <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
@@ -105,21 +120,28 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserM
               <FormItem>
                 <FormLabel>User Role</FormLabel>
                 <FormControl>
-                  <select className="w-full p-2 border border-gray-300 rounded" {...field}>
-                    <option value="admin">Admin</option>
-                    <option value="cashier">Cashier</option>
-                    <option value="manager">Manager</option>
-                  </select>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="cashier">Cashier</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )} />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button type="submit">{userData ? "Update User" : "Add User"}</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : userData ? "Update User" : "Add User"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
