@@ -55,13 +55,18 @@ Route::middleware('auth:api')->group(function () {
 
         // ✅ Inventory Management
         Route::prefix('/inventory')->group(function () {
-            Route::get('/', [InventoryController::class, 'getAll']);
-            Route::post('/add', [InventoryController::class, 'addProduct']);
-            Route::put('/update/{id}', [InventoryController::class, 'updateProduct']);
-            Route::delete('/archive/{id}', [InventoryController::class, 'archiveProduct']); // ✅ Soft Delete
-            Route::put('/restore/{id}', [InventoryController::class, 'restoreProduct']); // ✅ Restore
+            Route::get('/', [InventoryController::class, 'getAll']); // ✅ Fetch all products
+            Route::post('/add', [InventoryController::class, 'addProduct']); // ✅ Add new product
+            Route::put('/update/{id}', [InventoryController::class, 'updateProduct']); // ✅ Update product details
+            Route::delete('/archive/{id}', [InventoryController::class, 'archiveProduct']); // ✅ Soft Delete (Archive)
+            Route::put('/restore/{id}', [InventoryController::class, 'restoreProduct']); // ✅ Restore archived product
             Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']); // ✅ Permanent Delete
+
+            // ✅ New Stock Management Routes
+            Route::put('/manage-stock/{id}', [InventoryController::class, 'manageStock']); // ✅ Manage stock (restock, sale, adjustment, damage, return)
+            Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts']); // ✅ Fetch low-stock products
         });
+
 
         // ✅ Reports
         Route::prefix('/reports')->group(function () {

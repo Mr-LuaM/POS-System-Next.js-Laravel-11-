@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Store;
 use Illuminate\Support\Facades\Validator;
+use App\Services\ResponseService; // ✅ Import ResponseService
 
 class StoreController extends Controller
 {
@@ -19,26 +20,16 @@ class StoreController extends Controller
             $query = Store::select('id', 'name', 'location', 'created_at', 'deleted_at');
 
             if ($archived === 'true') {
-                $query = $query->onlyTrashed(); // ✅ Get only archived stores
+                $query = $query->onlyTrashed();
             } elseif ($archived === 'false') {
-                $query = $query->whereNull('deleted_at'); // ✅ Get only active stores
+                $query = $query->whereNull('deleted_at');
             } else {
-                $query = $query->withTrashed(); // ✅ Get both active & archived stores
+                $query = $query->withTrashed();
             }
 
-            $stores = $query->orderBy('id', 'desc')->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Stores fetched successfully',
-                'data' => $stores
-            ], 200);
+            return ResponseService::success('Stores fetched successfully', $query->orderBy('id', 'desc')->get());
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch stores',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to fetch stores', $e->getMessage());
         }
     }
 
@@ -53,27 +44,14 @@ class StoreController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+            return ResponseService::validationError($validator->errors()); // ✅ Matches frontend expected format
         }
 
         try {
             $store = Store::create($request->only(['name', 'location']));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Store added successfully',
-                'data' => $store
-            ], 201);
+            return ResponseService::success('Store added successfully', $store, 201);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add store',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to add store', $e->getMessage());
         }
     }
 
@@ -83,7 +61,7 @@ class StoreController extends Controller
     public function updateStore(Request $request, $id)
     {
         try {
-            $store = Store::withTrashed()->findOrFail($id); // ✅ Include archived stores
+            $store = Store::withTrashed()->findOrFail($id);
 
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255|unique:stores,name,' . $id,
@@ -91,26 +69,14 @@ class StoreController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
+                return ResponseService::validationError($validator->errors());
             }
 
             $store->update($request->only(['name', 'location']));
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Store updated successfully',
-                'data' => $store
-            ], 200);
+            return ResponseService::success('Store updated successfully', $store);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update store',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to update store', $e->getMessage());
         }
     }
 
@@ -124,24 +90,13 @@ class StoreController extends Controller
 
             // ✅ Prevent deletion if linked to sales, products, or employees
             if ($store->sales()->exists() || $store->products()->exists() || $store->employeeShifts()->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete store. It has related records in sales, inventory, or employee shifts.'
-                ], 400);
+                return ResponseService::error('Cannot delete store. It has related records in sales, inventory, or employee shifts.', null, 400);
             }
 
-            $store->delete(); // ✅ Soft-delete
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Store archived successfully'
-            ], 200);
+            $store->delete();
+            return ResponseService::success('Store archived successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to archive store',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to archive store', $e->getMessage());
         }
     }
 
@@ -151,42 +106,27 @@ class StoreController extends Controller
     public function restoreStore($id)
     {
         try {
-            $store = Store::onlyTrashed()->findOrFail($id); // ✅ Find only archived stores
+            $store = Store::onlyTrashed()->findOrFail($id);
             $store->restore();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Store restored successfully',
-                'data' => $store
-            ], 200);
+            return ResponseService::success('Store restored successfully', $store);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restore store',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to restore store', $e->getMessage());
         }
     }
 
     /**
-     * ❌ Permanently Delete a Store (Only If Already Archived)
+     * ✅ Permanently Delete a Store (Only If Already Archived)
      */
     public function forceDeleteStore($id)
     {
         try {
-            $store = Store::onlyTrashed()->findOrFail($id); // ✅ Find only archived stores
-            $store->forceDelete(); // ✅ Permanently delete store
+            $store = Store::onlyTrashed()->findOrFail($id);
+            $store->forceDelete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Store permanently deleted'
-            ], 200);
+            return ResponseService::success('Store permanently deleted');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to permanently delete store',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to permanently delete store', $e->getMessage());
         }
     }
 }

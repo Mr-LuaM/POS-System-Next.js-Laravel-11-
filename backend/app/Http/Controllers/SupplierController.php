@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\Validator;
+use App\Services\ResponseService; // ✅ Import ResponseService
 
 class SupplierController extends Controller
 {
@@ -19,26 +20,16 @@ class SupplierController extends Controller
             $query = Supplier::select('id', 'name', 'contact', 'email', 'address', 'created_at', 'deleted_at');
 
             if ($archived === 'true') {
-                $query = $query->onlyTrashed(); // ✅ Get only archived suppliers
+                $query = $query->onlyTrashed();
             } elseif ($archived === 'false') {
-                $query = $query->whereNull('deleted_at'); // ✅ Get only active suppliers
+                $query = $query->whereNull('deleted_at');
             } else {
-                $query = $query->withTrashed(); // ✅ Get both active & archived suppliers
+                $query = $query->withTrashed();
             }
 
-            $suppliers = $query->orderBy('id', 'desc')->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Suppliers fetched successfully',
-                'data' => $suppliers
-            ], 200);
+            return ResponseService::success('Suppliers fetched successfully', $query->orderBy('id', 'desc')->get());
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch suppliers',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to fetch suppliers', $e->getMessage());
         }
     }
 
@@ -55,27 +46,14 @@ class SupplierController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+            return ResponseService::validationError($validator->errors()); // ✅ Matches frontend expected format
         }
 
         try {
             $supplier = Supplier::create($request->all());
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier added successfully',
-                'data' => $supplier
-            ], 201);
+            return ResponseService::success('Supplier added successfully', $supplier, 201);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add supplier',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to add supplier', $e->getMessage());
         }
     }
 
@@ -85,7 +63,7 @@ class SupplierController extends Controller
     public function updateSupplier(Request $request, $id)
     {
         try {
-            $supplier = Supplier::withTrashed()->findOrFail($id); // ✅ Include archived suppliers
+            $supplier = Supplier::withTrashed()->findOrFail($id);
 
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
@@ -95,26 +73,14 @@ class SupplierController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
+                return ResponseService::validationError($validator->errors());
             }
 
             $supplier->update($request->all());
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier updated successfully',
-                'data' => $supplier
-            ], 200);
+            return ResponseService::success('Supplier updated successfully', $supplier);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update supplier',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to update supplier', $e->getMessage());
         }
     }
 
@@ -125,18 +91,11 @@ class SupplierController extends Controller
     {
         try {
             $supplier = Supplier::findOrFail($id);
-            $supplier->delete(); // ✅ Soft-delete
+            $supplier->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier archived successfully'
-            ], 200);
+            return ResponseService::success('Supplier archived successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to archive supplier',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to archive supplier', $e->getMessage());
         }
     }
 
@@ -146,19 +105,12 @@ class SupplierController extends Controller
     public function restoreSupplier($id)
     {
         try {
-            $supplier = Supplier::onlyTrashed()->findOrFail($id); // ✅ Find only archived suppliers
+            $supplier = Supplier::onlyTrashed()->findOrFail($id);
             $supplier->restore();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier restored successfully'
-            ], 200);
+            return ResponseService::success('Supplier restored successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restore supplier',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to restore supplier', $e->getMessage());
         }
     }
 
@@ -168,19 +120,12 @@ class SupplierController extends Controller
     public function deleteSupplier($id)
     {
         try {
-            $supplier = Supplier::onlyTrashed()->findOrFail($id); // ✅ Find only archived suppliers
-            $supplier->forceDelete(); // ✅ Permanently delete supplier
+            $supplier = Supplier::onlyTrashed()->findOrFail($id);
+            $supplier->forceDelete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Supplier permanently deleted'
-            ], 200);
+            return ResponseService::success('Supplier permanently deleted');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete supplier',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to delete supplier', $e->getMessage());
         }
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Services\ResponseService; // ✅ Import ResponseService
 
 class CategoryController extends Controller
 {
@@ -25,19 +26,9 @@ class CategoryController extends Controller
     public function getAll()
     {
         try {
-            $categories = $this->category->all();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Categories fetched successfully',
-                'data' => $categories
-            ], 200);
+            return ResponseService::success('Categories fetched successfully', $this->category->all());
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch categories',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to fetch categories', $e->getMessage());
         }
     }
 
@@ -51,27 +42,14 @@ class CategoryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+            return ResponseService::validationError($validator->errors()); // ✅ Matches frontend expected format
         }
 
         try {
             $category = $this->category->create(['name' => $request->name]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Category added successfully',
-                'data' => $category
-            ], 201);
+            return ResponseService::success('Category added successfully', $category, 201);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add category',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to add category', $e->getMessage());
         }
     }
 
@@ -88,31 +66,16 @@ class CategoryController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
+                return ResponseService::validationError($validator->errors());
             }
 
             $category->update(['name' => $request->name]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Category updated successfully',
-                'data' => $category
-            ], 200);
+            return ResponseService::success('Category updated successfully', $category);
         } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Category not found'
-            ], 404);
+            return ResponseService::error('Category not found', null, 404);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update category',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to update category', $e->getMessage());
         }
     }
 
@@ -125,21 +88,11 @@ class CategoryController extends Controller
             $category = $this->category->findOrFail($id);
             $category->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Category deleted successfully'
-            ], 200);
+            return ResponseService::success('Category deleted successfully');
         } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Category not found'
-            ], 404);
+            return ResponseService::error('Category not found', null, 404);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete category',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to delete category', $e->getMessage());
         }
     }
 }

@@ -7,10 +7,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use App\Services\ResponseService; // ✅ Import ResponseService
 
 class UserController extends Controller
 {
-
     /**
      * ✅ Fetch all users (Active & Archived based on Query Parameter)
      */
@@ -22,29 +22,18 @@ class UserController extends Controller
             $query = User::select('id', 'name', 'email', 'role', 'created_at', 'deleted_at');
 
             if ($archived === 'true') {
-                $query = $query->onlyTrashed(); // ✅ Get only archived users
+                $query = $query->onlyTrashed();
             } elseif ($archived === 'false') {
-                $query = $query->whereNull('deleted_at'); // ✅ Get only active users
+                $query = $query->whereNull('deleted_at');
             } else {
-                $query = $query->withTrashed(); // ✅ Get both active & archived users
+                $query = $query->withTrashed();
             }
 
-            $users = $query->get();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Users fetched successfully',
-                'data' => $users
-            ], 200);
+            return ResponseService::success('Users fetched successfully', $query->get());
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch users',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to fetch users', $e->getMessage());
         }
     }
-
 
     /**
      * ✅ Create a new user
@@ -59,11 +48,7 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+            return ResponseService::validationError($validator->errors()); // ✅ Matches frontend expected format
         }
 
         try {
@@ -74,17 +59,9 @@ class UserController extends Controller
                 'role' => $request->role
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User created successfully',
-                'data' => $user
-            ], 201);
+            return ResponseService::success('User created successfully', $user, 201);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create user',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to create user', $e->getMessage());
         }
     }
 
@@ -94,7 +71,7 @@ class UserController extends Controller
     public function updateUser(Request $request, $id)
     {
         try {
-            $user = User::withTrashed()->findOrFail($id); // ✅ Include archived users
+            $user = User::withTrashed()->findOrFail($id);
 
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|string|max:255',
@@ -103,11 +80,7 @@ class UserController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
+                return ResponseService::validationError($validator->errors());
             }
 
             $user->update([
@@ -116,17 +89,9 @@ class UserController extends Controller
                 'password' => $request->password ? Hash::make($request->password) : $user->password
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User updated successfully',
-                'data' => $user
-            ], 200);
+            return ResponseService::success('User updated successfully', $user);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update user',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to update user', $e->getMessage());
         }
     }
 
@@ -139,24 +104,13 @@ class UserController extends Controller
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You cannot archive your own account.'
-                ], 403);
+                return ResponseService::error('You cannot archive your own account.', null, 403);
             }
 
-            $user->delete(); // ✅ Soft-delete
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User archived successfully'
-            ], 200);
+            $user->delete();
+            return ResponseService::success('User archived successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to archive user',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to archive user', $e->getMessage());
         }
     }
 
@@ -166,51 +120,31 @@ class UserController extends Controller
     public function restoreUser($id)
     {
         try {
-            $user = User::onlyTrashed()->findOrFail($id); // ✅ Find only archived users
+            $user = User::onlyTrashed()->findOrFail($id);
+            $user->restore();
 
-            $user->restore(); // ✅ Restore user
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User restored successfully',
-                'data' => $user
-            ], 200);
+            return ResponseService::success('User restored successfully', $user);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restore user',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to restore user', $e->getMessage());
         }
     }
 
     /**
-     * ❌ Permanently delete a user (Only if archived)
+     * ✅ Permanently delete a user (Only if archived)
      */
     public function deleteUser($id)
     {
         try {
-            $user = User::onlyTrashed()->findOrFail($id); // ✅ Find only archived users
+            $user = User::onlyTrashed()->findOrFail($id);
 
             if ($user->id === Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You cannot delete your own account.'
-                ], 403);
+                return ResponseService::error('You cannot delete your own account.', null, 403);
             }
 
-            $user->forceDelete(); // ✅ Permanently delete user
-
-            return response()->json([
-                'success' => true,
-                'message' => 'User permanently deleted'
-            ], 200);
+            $user->forceDelete();
+            return ResponseService::success('User permanently deleted');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to permanently delete user',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to permanently delete user', $e->getMessage());
         }
     }
 
@@ -223,10 +157,7 @@ class UserController extends Controller
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You cannot change your own role.'
-                ], 403);
+                return ResponseService::error('You cannot change your own role.', null, 403);
             }
 
             $validator = Validator::make($request->all(), [
@@ -234,26 +165,14 @@ class UserController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
+                return ResponseService::validationError($validator->errors());
             }
 
             $user->update(['role' => $request->role]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'User role updated successfully',
-                'data' => $user
-            ], 200);
+            return ResponseService::success('User role updated successfully', $user);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update user role',
-                'error' => $e->getMessage()
-            ], 500);
+            return ResponseService::error('Failed to update user role', $e->getMessage());
         }
     }
 }
