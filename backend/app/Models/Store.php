@@ -11,6 +11,8 @@ class Store extends Model
 
     protected $fillable = ['name', 'location'];
 
+    protected $dates = ['deleted_at']; // ✅ Ensure deleted_at is treated as a date
+
     /**
      * ✅ Define Relationship: A store has many sales.
      */

@@ -9,10 +9,11 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -20,6 +21,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = ['name', 'email', 'password', 'role'];
+    protected $dates = ['deleted_at']; // ✅ Ensure deleted_at is recognized as a date column
 
     public function sales()
     {

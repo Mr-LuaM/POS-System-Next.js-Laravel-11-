@@ -42,13 +42,15 @@ Route::middleware('auth:api')->group(function () {
             return response()->json(['message' => 'Welcome Admin!']);
         });
 
-        // ✅ User Management (Admin Only)
+        // ✅ User Management
         Route::prefix('/users')->group(function () {
-            Route::get('/', [UserController::class, 'getAllUsers']); // ✅ Fetch all users
-            Route::post('/create', [UserController::class, 'createUser']); // ✅ Add new user
-            Route::put('/update/{id}', [UserController::class, 'updateUser']); // ✅ Update user
-            Route::delete('/delete/{id}', [UserController::class, 'deleteUser']); // ✅ Delete user
-            Route::put('/update-role/{id}', [UserController::class, 'updateUserRole']); // ✅ Change user role
+            Route::get('/', [UserController::class, 'getAllUsers']);
+            Route::post('/create', [UserController::class, 'createUser']);
+            Route::put('/update/{id}', [UserController::class, 'updateUser']);
+            Route::delete('/archive/{id}', [UserController::class, 'archiveUser']); // ✅ Soft Delete (Archive)
+            Route::put('/restore/{id}', [UserController::class, 'restoreUser']); // ✅ Restore
+            Route::delete('/delete/{id}', [UserController::class, 'deleteUser']); // ✅ Permanent Delete
+            Route::put('/update-role/{id}', [UserController::class, 'updateUserRole']);
         });
 
         // ✅ Inventory Management
@@ -56,8 +58,9 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/', [InventoryController::class, 'getAll']);
             Route::post('/add', [InventoryController::class, 'addProduct']);
             Route::put('/update/{id}', [InventoryController::class, 'updateProduct']);
-            Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']);
-            Route::get('/low-stock', [InventoryController::class, 'lowStockAlert']);
+            Route::delete('/archive/{id}', [InventoryController::class, 'archiveProduct']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [InventoryController::class, 'restoreProduct']); // ✅ Restore
+            Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']); // ✅ Permanent Delete
         });
 
         // ✅ Reports
@@ -73,7 +76,9 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/', [StoreController::class, 'getAll']);
             Route::post('/create', [StoreController::class, 'addStore']);
             Route::put('/update/{id}', [StoreController::class, 'updateStore']);
-            Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']);
+            Route::delete('/archive/{id}', [StoreController::class, 'archiveStore']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [StoreController::class, 'restoreStore']); // ✅ Restore
+            Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']); // ✅ Permanent Delete
         });
 
         // ✅ Suppliers
@@ -81,15 +86,39 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/', [SupplierController::class, 'getAll']);
             Route::post('/add', [SupplierController::class, 'addSupplier']);
             Route::put('/update/{id}', [SupplierController::class, 'updateSupplier']);
-            Route::delete('/delete/{id}', [SupplierController::class, 'deleteSupplier']);
+            Route::delete('/archive/{id}', [SupplierController::class, 'archiveSupplier']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [SupplierController::class, 'restoreSupplier']); // ✅ Restore
+            Route::delete('/delete/{id}', [SupplierController::class, 'deleteSupplier']); // ✅ Permanent Delete
         });
+
+        // ✅ Customers
+        Route::prefix('/customers')->group(function () {
+            Route::get('/', [CustomerController::class, 'getAllCustomers']);
+            Route::post('/add', [CustomerController::class, 'addCustomer']);
+            Route::put('/update/{id}', [CustomerController::class, 'updateCustomer']);
+            Route::delete('/archive/{id}', [CustomerController::class, 'archiveCustomer']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [CustomerController::class, 'restoreCustomer']); // ✅ Restore
+            Route::delete('/delete/{id}', [CustomerController::class, 'deleteCustomer']); // ✅ Permanent Delete
+        });
+
 
         // ✅ Discounts
         Route::prefix('/discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'getAll']);
             Route::post('/add', [DiscountController::class, 'addDiscount']);
             Route::put('/update/{id}', [DiscountController::class, 'updateDiscount']);
-            Route::delete('/delete/{id}', [DiscountController::class, 'deleteDiscount']);
+            Route::delete('/archive/{id}', [DiscountController::class, 'archiveDiscount']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [DiscountController::class, 'restoreDiscount']); // ✅ Restore
+            Route::delete('/delete/{id}', [DiscountController::class, 'deleteDiscount']); // ✅ Permanent Delete
+        });
+
+        // ✅ Expenses
+        Route::prefix('/expenses')->group(function () {
+            Route::get('/', [ExpenseController::class, 'getAll']);
+            Route::post('/add', [ExpenseController::class, 'addExpense']);
+            Route::delete('/archive/{id}', [ExpenseController::class, 'archiveExpense']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [ExpenseController::class, 'restoreExpense']); // ✅ Restore
+            Route::delete('/delete/{id}', [ExpenseController::class, 'deleteExpense']); // ✅ Permanent Delete
         });
 
         // ✅ Stock Movements

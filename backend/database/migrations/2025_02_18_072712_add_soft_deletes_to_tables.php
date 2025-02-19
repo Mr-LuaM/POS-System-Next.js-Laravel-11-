@@ -41,6 +41,10 @@ return new class extends Migration
         Schema::table('discounts', function (Blueprint $table) {
             $table->softDeletes();
         });
+        Schema::table('loyalty_points', function (Blueprint $table) {
+            $table->softDeletes();
+        });
+
         Schema::table('expenses', function (Blueprint $table) {
             $table->softDeletes();
         });

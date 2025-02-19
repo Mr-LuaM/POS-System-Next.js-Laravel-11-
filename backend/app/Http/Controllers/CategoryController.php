@@ -12,7 +12,7 @@ class CategoryController extends Controller
     protected $category;
 
     /**
-     * Inject Category Model
+     * ✅ Inject Category Model
      */
     public function __construct(Category $category)
     {
@@ -20,51 +20,63 @@ class CategoryController extends Controller
     }
 
     /**
-     * Get all categories.
+     * ✅ Get all categories.
      */
     public function getAll()
     {
         try {
             $categories = $this->category->all();
+
             return response()->json([
                 'success' => true,
-                'categories' => $categories
+                'message' => 'Categories fetched successfully',
+                'data' => $categories
             ], 200);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to fetch categories'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch categories',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Add a new category.
+     * ✅ Add a new category.
      */
     public function addCategory(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255|unique:categories,name',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
         try {
-            $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255|unique:categories,name',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-            }
-
-            $category = $this->category->create([
-                'name' => $request->name,
-            ]);
+            $category = $this->category->create(['name' => $request->name]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Category added successfully',
-                'category' => $category
+                'data' => $category
             ], 201);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error adding category'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add category',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Update a category.
+     * ✅ Update a category.
      */
     public function updateCategory(Request $request, $id)
     {
@@ -76,7 +88,11 @@ class CategoryController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
             $category->update(['name' => $request->name]);
@@ -84,17 +100,24 @@ class CategoryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Category updated successfully',
-                'category' => $category
+                'data' => $category
             ], 200);
         } catch (ModelNotFoundException $e) {
-            return response()->json(['success' => false, 'message' => 'Category not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Category not found'
+            ], 404);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error updating category'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update category',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Delete a category.
+     * ✅ Delete a category.
      */
     public function deleteCategory($id)
     {
@@ -107,9 +130,16 @@ class CategoryController extends Controller
                 'message' => 'Category deleted successfully'
             ], 200);
         } catch (ModelNotFoundException $e) {
-            return response()->json(['success' => false, 'message' => 'Category not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Category not found'
+            ], 404);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error deleting category'], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete category',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }
