@@ -49,20 +49,28 @@ export const useUsers = () => {
   const saveUser = async (userData: Partial<User> & { password?: string }, id?: number): Promise<boolean> => {
     try {
       if (id) {
-        if (!userData.password) delete userData.password; // ✅ Exclude empty password
+        console.log("Updating user with ID:", id, userData); // ✅ Debugging
+  
+        // ✅ Ensure empty password is not sent
+        if (!userData.password) delete userData.password;
+  
         await updateUser(id, userData);
         toast.success("Success: User updated successfully.");
       } else {
+        console.log("Creating new user:", userData); // ✅ Debugging
+  
         await addUser(userData as User & { password: string });
         toast.success("Success: User added successfully.");
       }
-      fetchUsers();
+  
+      fetchUsers(); // ✅ Refresh user list after success
       return true;
     } catch (error: any) {
       toast.error(`Error: ${error.message || "Failed to save user."}`);
       return false;
     }
   };
+  
 
   /**
    * ✅ Archive (Soft Delete) User

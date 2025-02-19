@@ -18,10 +18,10 @@ export interface User {
 export const getUsers = async (archived: string | null = null): Promise<User[]> => {
   try {
     const params = archived !== null ? { archived } : {}; // ✅ Only send if specified
-    const response = await axiosInstance.get("/users", { params });
-    return response.data.data;
+    const { data } = await axiosInstance.get("/users", { params });
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error)); // ✅ Proper error handling
   }
 };
 
@@ -30,10 +30,10 @@ export const getUsers = async (archived: string | null = null): Promise<User[]> 
  */
 export const addUser = async (userData: Omit<User, "id" | "created_at" | "deleted_at"> & { password: string }): Promise<User> => {
   try {
-    const response = await axiosInstance.post("/users/create", userData);
-    return response.data.data;
+    const { data } = await axiosInstance.post("/users/create", userData);
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -42,10 +42,10 @@ export const addUser = async (userData: Omit<User, "id" | "created_at" | "delete
  */
 export const updateUser = async (id: number, userData: Partial<Omit<User, "id" | "created_at" | "deleted_at"> & { password?: string }>): Promise<User> => {
   try {
-    const response = await axiosInstance.put(`/users/update/${id}`, userData);
-    return response.data.data;
+    const { data } = await axiosInstance.put(`/users/update/${id}`, userData);
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -56,7 +56,7 @@ export const archiveUser = async (id: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/users/archive/${id}`);
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -65,10 +65,10 @@ export const archiveUser = async (id: number): Promise<void> => {
  */
 export const restoreUser = async (id: number): Promise<User> => {
   try {
-    const response = await axiosInstance.put(`/users/restore/${id}`);
-    return response.data.data;
+    const { data } = await axiosInstance.put(`/users/restore/${id}`);
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -79,7 +79,7 @@ export const deleteUser = async (id: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/users/delete/${id}`);
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -88,9 +88,9 @@ export const deleteUser = async (id: number): Promise<void> => {
  */
 export const updateUserRole = async (id: number, role: "admin" | "cashier" | "manager"): Promise<User> => {
   try {
-    const response = await axiosInstance.put(`/users/update-role/${id}`, { role });
-    return response.data.data;
+    const { data } = await axiosInstance.put(`/users/update-role/${id}`, { role });
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };

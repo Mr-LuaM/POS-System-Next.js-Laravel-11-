@@ -1,96 +1,78 @@
 import { axiosInstance, handleApiError } from "@/lib/apiService";
-
+export interface Supplier {
+    id: number;
+    name: string;
+    contact?: string;
+    email?: string;
+    address?: string;
+    deleted_at?: string | null; // ✅ To check if supplier is archived
+  }
+  
 /**
- * ✅ User Type Definition (Includes Soft Delete `deleted_at`)
+ * ✅ Fetch All Suppliers
  */
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: "admin" | "cashier" | "manager";
-  created_at?: string;
-  deleted_at?: string | null; // ✅ For soft-deleted users
-}
-
-/**
- * ✅ Fetch All Users (Supports Archived Query)
- */
-export const getUsers = async (archived: string | null = null): Promise<User[]> => {
-  try {
-    const params = archived !== null ? { archived } : {}; // ✅ Only send if specified
-    const { data } = await axiosInstance.get("/users", { params });
-    return data.data;
+export const getSuppliers = async (includeArchived = false): Promise<Supplier[]> => {
+    try {
+    const response = await axiosInstance.get(`/suppliers?archived=${includeArchived}`);
+    return response.data.data;
   } catch (error) {
-    throw new Error(handleApiError(error)); // ✅ Proper error handling
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };
 
 /**
- * ✅ Add a New User
+ * ✅ Add a New Supplier
  */
-export const addUser = async (userData: Omit<User, "id" | "created_at" | "deleted_at"> & { password: string }): Promise<User> => {
+export const addSupplier = async (supplierData: Omit<Supplier, "id">): Promise<Supplier> => {
   try {
-    const { data } = await axiosInstance.post("/users/create", userData);
-    return data.data;
+    const response = await axiosInstance.post("/suppliers/add", supplierData);
+    return response.data.data;
   } catch (error) {
-    throw new Error(handleApiError(error));
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };
 
 /**
- * ✅ Update a User
+ * ✅ Update a Supplier
  */
-export const updateUser = async (id: number, userData: Partial<Omit<User, "id" | "created_at" | "deleted_at"> & { password?: string }>): Promise<User> => {
+export const updateSupplier = async (supplierId: number, supplierData: Partial<Supplier>): Promise<Supplier> => {
   try {
-    const { data } = await axiosInstance.put(`/users/update/${id}`, userData);
-    return data.data;
+    const response = await axiosInstance.put(`/suppliers/update/${supplierId}`, supplierData);
+    return response.data.data;
   } catch (error) {
-    throw new Error(handleApiError(error));
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };
 
 /**
- * ✅ Archive (Soft Delete) User
+ * ✅ Archive a Supplier (Soft Delete)
  */
-export const archiveUser = async (id: number): Promise<void> => {
+export const archiveSupplier = async (supplierId: number): Promise<void> => {
   try {
-    await axiosInstance.delete(`/users/archive/${id}`);
+    await axiosInstance.delete(`/suppliers/archive/${supplierId}`);
   } catch (error) {
-    throw new Error(handleApiError(error));
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };
 
 /**
- * ✅ Restore Archived User
+ * ✅ Restore a Supplier (Undo Soft Delete)
  */
-export const restoreUser = async (id: number): Promise<User> => {
+export const restoreSupplier = async (supplierId: number): Promise<void> => {
   try {
-    const { data } = await axiosInstance.put(`/users/restore/${id}`);
-    return data.data;
+    await axiosInstance.put(`/suppliers/restore/${supplierId}`);
   } catch (error) {
-    throw new Error(handleApiError(error));
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };
 
 /**
- * ✅ Permanently Delete a User (Only if Archived)
+ * ✅ Permanently Delete a Supplier
  */
-export const deleteUser = async (id: number): Promise<void> => {
+export const deleteSupplier = async (supplierId: number): Promise<void> => {
   try {
-    await axiosInstance.delete(`/users/delete/${id}`);
+    await axiosInstance.delete(`/suppliers/delete/${supplierId}`);
   } catch (error) {
-    throw new Error(handleApiError(error));
-  }
-};
-
-/**
- * ✅ Update User Role
- */
-export const updateUserRole = async (id: number, role: "admin" | "cashier" | "manager"): Promise<User> => {
-  try {
-    const { data } = await axiosInstance.put(`/users/update-role/${id}`, { role });
-    return data.data;
-  } catch (error) {
-    throw new Error(handleApiError(error));
+    throw new Error(handleApiError(error)); // ✅ Return error message
   }
 };

@@ -5,11 +5,11 @@ import { getCategories, addCategory, updateCategory, deleteCategory, Category } 
 import { toast } from "sonner";
 
 /**
- * ✅ Custom Hook for Managing Categories
+ * ✅ Custom Hook for Managing Categories (Consistent API Handling)
  */
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [isError, setIsError] = useState<boolean>(false);
 
   /**
@@ -22,7 +22,7 @@ export const useCategories = () => {
       const data = await getCategories();
       setCategories(data);
     } catch (error: any) {
-      toast.error(error.message || "Failed to fetch categories.");
+      toast.error(`Error: ${error.message || "Failed to fetch categories."}`);
       setIsError(true);
     } finally {
       setLoading(false);
@@ -39,16 +39,16 @@ export const useCategories = () => {
   const handleAddCategory = async (categoryName: string) => {
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
-      toast.error("Category name cannot be empty.");
+      toast.error("Error: Category name cannot be empty.");
       return;
     }
 
     try {
       await addCategory(trimmedName);
-      toast.success("Category added successfully.");
+      toast.success("Success: Category added successfully.");
       fetchCategories();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add category.");
+      toast.error(`Error: ${error.message || "Failed to add category."}`);
     }
   };
 
@@ -58,16 +58,16 @@ export const useCategories = () => {
   const handleUpdateCategory = async (id: number, categoryName: string) => {
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
-      toast.error("Category name cannot be empty.");
+      toast.error("Error: Category name cannot be empty.");
       return;
     }
 
     try {
       await updateCategory(id, trimmedName);
-      toast.success("Category updated successfully.");
+      toast.success("Success: Category updated successfully.");
       fetchCategories();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update category.");
+      toast.error(`Error: ${error.message || "Failed to update category."}`);
     }
   };
 
@@ -77,10 +77,10 @@ export const useCategories = () => {
   const handleDeleteCategory = async (id: number) => {
     try {
       await deleteCategory(id);
-      toast.success("Category deleted successfully.");
+      toast.success("Success: Category deleted successfully.");
       fetchCategories();
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete category.");
+      toast.error(`Error: ${error.message || "Failed to delete category."}`);
     }
   };
 

@@ -38,9 +38,10 @@ export default function UsersTable() {
   };
 
   /**
-   * ✅ Open Edit User Modal
+   * ✅ Open Edit User Modal (Ensure Data is Passed)
    */
-  const openEditModal = (user: any) => {
+  const openEditModal = (user: { id: number; name: string; email: string; role: string }) => {
+    console.log("Editing user:", user); // ✅ Debugging
     setUserData(user);
     setModalOpen(true);
   };
@@ -55,10 +56,41 @@ export default function UsersTable() {
   /**
    * ✅ Handle Add or Update User Submission
    */
-  const handleSubmitUser = async (data: Partial<User>) => {
-    const success = await saveUser(data, userData?.id);
-    if (success) {
-      setModalOpen(false);
+  /**
+ * ✅ Handle Add or Update User Submission
+ */
+const handleSubmitUser = async (data: Partial<User>) => {
+  console.log("Submitting user data:", data); // ✅ Debugging
+
+  const success = await saveUser(data, userData?.id); // ✅ Check if update request is happening
+
+  if (success) {
+    console.log("User saved successfully. Closing modal.");
+    setModalOpen(false);
+  } else {
+    console.log("User save failed. Keeping modal open.");
+  }
+};
+
+
+  /**
+   * ✅ Handle Archive, Restore, or Delete Confirmation
+   */
+  const handleConfirmAction = async () => {
+    if (!confirmDialog) return;
+
+    try {
+      if (confirmDialog.type === "archive") {
+        await handleArchiveUser(confirmDialog.id);
+      } else if (confirmDialog.type === "restore") {
+        await handleRestoreUser(confirmDialog.id);
+      } else if (confirmDialog.type === "delete") {
+        await handleDeleteUser(confirmDialog.id);
+      }
+    } catch (error) {
+      console.error("Error processing action:", error);
+    } finally {
+      setConfirmDialog(null);
     }
   };
 
@@ -92,13 +124,7 @@ export default function UsersTable() {
           <Skeleton className="h-10 w-full" />
         </div>
       ) : (
-        <div className="w-full max-w-none px-0">
-          <DataTable
-            columns={getUserColumns(openEditModal, openConfirmDialog)}
-            data={users}
-            searchKey="name"
-          />
-        </div>
+        <DataTable columns={getUserColumns(openEditModal, openConfirmDialog)} data={users} searchKey="name" />
       )}
 
       {/* ✅ User Modal */}
@@ -109,21 +135,12 @@ export default function UsersTable() {
         userData={userData || undefined} 
       />
 
-      {/* ✅ Confirm Dialog with Loading State */}
+      {/* ✅ Confirm Dialog */}
       {confirmDialog && (
         <ConfirmDialog
           key={confirmDialog.id}
           open={true}
-          onConfirm={async () => {
-            if (confirmDialog.type === "archive") {
-              await handleArchiveUser(confirmDialog.id);
-            } else if (confirmDialog.type === "restore") {
-              await handleRestoreUser(confirmDialog.id);
-            } else if (confirmDialog.type === "delete") {
-              await handleDeleteUser(confirmDialog.id);
-            }
-            setConfirmDialog(null);
-          }}
+          onConfirm={handleConfirmAction}
           onCancel={() => setConfirmDialog(null)}
           title={
             confirmDialog.type === "archive"
@@ -132,7 +149,13 @@ export default function UsersTable() {
               ? "Restore User"
               : "Delete User"
           }
-          description="This action cannot be undone."
+          description={
+            confirmDialog.type === "archive"
+              ? "Are you sure you want to archive this user? You can restore it later."
+              : confirmDialog.type === "restore"
+              ? "Are you sure you want to restore this user?"
+              : "Are you sure you want to permanently delete this user? This action cannot be undone."
+          }
         />
       )}
     </div>

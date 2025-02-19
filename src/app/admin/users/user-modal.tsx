@@ -32,7 +32,7 @@ type UserSchemaType = z.infer<typeof userSchema>;
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (values: UserSchemaType) => Promise<boolean>; // ✅ Returns boolean for success
+  onSubmit: (values: Partial<UserSchemaType>) => Promise<boolean>; // ✅ Returns boolean for success
   userData?: Partial<UserSchemaType> | null;
 }
 
@@ -48,31 +48,43 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserM
     defaultValues: {
       name: "",
       email: "",
-      password: "",
+      password: "", // ✅ Exclude password when editing
       role: "cashier",
     },
   });
 
   // ✅ Ensure form updates when switching users
   useEffect(() => {
-    form.reset({
-      name: userData?.name || "",
-      email: userData?.email || "",
-      password: "", // ✅ Exclude password when editing
-      role: userData?.role || "cashier",
-    });
+    if (userData) {
+      form.reset({
+        name: userData.name || "",
+        email: userData.email || "",
+        password: "", // ✅ Prevents password from being pre-filled
+        role: userData.role || "cashier",
+      });
+    }
   }, [userData, form]);
 
-  /**
-   * ✅ Handle Submit with Loading State
-   */
-  const handleSubmit = async (data: UserSchemaType) => {
-    setLoading(true); // ✅ Start loading
-    const success = await onSubmit(data);
-    setLoading(false); // ✅ Stop loading
+ /**
+ * ✅ Handle Submit with Loading State
+ */
+const handleSubmit = async (data: UserSchemaType) => {
+  setLoading(true); // ✅ Start loading
 
-    if (success) onClose(); // ✅ Close modal only on success
-  };
+  console.log("Submitting form data:", data); // ✅ Debugging
+
+  // ✅ Ensure password is excluded on edit
+  const userPayload: Partial<UserSchemaType> = { ...data };
+  if (!userData) userPayload.password = data.password; // Only include password for new users
+  else delete userPayload.password;
+
+  console.log("Final payload sent:", userPayload); // ✅ Debugging final payload
+
+  const success = await onSubmit(userPayload);
+  
+  setLoading(false); // ✅ Stop loading
+  if (success) onClose(); // ✅ Close modal only on success
+};
 
   return (
     <Dialog open={isOpen} onOpenChange={!loading ? onClose : undefined}>
@@ -135,14 +147,25 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData }: UserM
               </FormItem>
             )} />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : userData ? "Update User" : "Add User"}
-              </Button>
-            </DialogFooter>
+<DialogFooter>
+  <Button 
+    type="button" 
+    variant="outline" 
+    onClick={onClose} 
+    disabled={loading}
+  >
+    Cancel
+  </Button>
+
+  <Button 
+    type="submit" 
+    disabled={loading} 
+    onClick={form.handleSubmit(handleSubmit)} // ✅ Ensure form submission triggers
+  >
+    {loading ? "Saving..." : userData ? "Update User" : "Add User"}
+  </Button>
+</DialogFooter>
+
           </form>
         </Form>
       </DialogContent>

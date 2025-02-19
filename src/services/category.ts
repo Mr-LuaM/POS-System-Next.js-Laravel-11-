@@ -13,10 +13,10 @@ export interface Category {
  */
 export const getCategories = async (): Promise<Category[]> => {
   try {
-    const response = await axiosInstance.get("/categories");
-    return response.data.data;
+    const { data } = await axiosInstance.get("/categories");
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error)); // ✅ Proper error handling
   }
 };
 
@@ -25,10 +25,10 @@ export const getCategories = async (): Promise<Category[]> => {
  */
 export const addCategory = async (categoryName: string): Promise<Category> => {
   try {
-    const response = await axiosInstance.post("/categories/add", { name: categoryName });
-    return response.data.data;
+    const { data } = await axiosInstance.post("/categories/add", { name: categoryName });
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -37,10 +37,10 @@ export const addCategory = async (categoryName: string): Promise<Category> => {
  */
 export const updateCategory = async (categoryId: number, categoryName: string): Promise<Category> => {
   try {
-    const response = await axiosInstance.put(`/categories/update/${categoryId}`, { name: categoryName });
-    return response.data.data;
+    const { data } = await axiosInstance.put(`/categories/update/${categoryId}`, { name: categoryName });
+    return data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -51,6 +51,6 @@ export const deleteCategory = async (categoryId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/categories/delete/${categoryId}`);
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };

@@ -21,7 +21,7 @@ export const getStores = async (archived: "true" | "false" | "all" = "all"): Pro
     });
     return response.data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error)); // ✅ Standardized error handling
   }
 };
 
@@ -33,7 +33,7 @@ export const addStore = async (storeData: Omit<Store, "id" | "created_at" | "del
     const response = await axiosInstance.post("/stores/create", storeData);
     return response.data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -45,7 +45,7 @@ export const updateStore = async (storeId: number, storeData: Partial<Omit<Store
     const response = await axiosInstance.put(`/stores/update/${storeId}`, storeData);
     return response.data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -56,7 +56,7 @@ export const archiveStore = async (storeId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/stores/archive/${storeId}`);
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -68,7 +68,7 @@ export const restoreStore = async (storeId: number): Promise<Store> => {
     const response = await axiosInstance.put(`/stores/restore/${storeId}`);
     return response.data.data;
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
 
@@ -79,6 +79,6 @@ export const deleteStore = async (storeId: number): Promise<void> => {
   try {
     await axiosInstance.delete(`/stores/delete/${storeId}`);
   } catch (error) {
-    throw handleApiError(error);
+    throw new Error(handleApiError(error));
   }
 };
