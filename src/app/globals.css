@@ -41,6 +41,14 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* ✅ Success, Warning, and Error Colors */
+    --success: 120 70% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 39 88% 55%;
+    --warning-foreground: 0 0% 100%;
+    --error: 0 72% 55%;
+    --error-foreground: 0 0% 100%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -75,6 +83,14 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+        /* ✅ Dark Mode Success, Warning, and Error */
+        --success: 120 70% 50%;
+        --success-foreground: 0 0% 100%;
+        --warning: 39 90% 65%;
+        --warning-foreground: 0 0% 100%;
+        --error: 0 80% 60%;
+        --error-foreground: 0 0% 100%;
   }
 }
 

@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import ProductDetailsModal from "./details-modal";
 import InventoryModal from "./inventory-modal"; // ✅ Import Inventory Modal
-import { Button } from "@/components/ui/button"; // ✅ Fix missing import
+import { Button } from "@/components/ui/button";
 
 /**
  * ✅ Inventory Table (Handles Full CRUD & Archive)
@@ -27,6 +27,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     setArchivedFilter,
     addInventory,
     editInventory,
+    refreshInventory, // ✅ Ensure correct refresh handling
   } = useInventory();
 
   const { categories } = useCategories();
@@ -60,8 +61,8 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     qr_code: item.product?.qr_code ?? null,
     created_at: item.created_at ?? "N/A",
     updated_at: item.updated_at ?? "N/A",
-    deleted_at: item.deleted_at ?? null, // ✅ Store-level archive
-    product_deleted_at: item.product?.deleted_at ?? null, // ✅ Global product archive
+    deleted_at: item.deleted_at ?? null,
+    product_deleted_at: item.product?.deleted_at ?? null,
   }));
 
   /**
@@ -76,30 +77,26 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   };
 
   /**
-   * ✅ Open Edit Inventory Modal
+   * ✅ Open Edit Inventory Modal (Fix Category & Supplier Matching)
    */
-  /**
- * ✅ Open Edit Inventory Modal (Fix Category & Supplier Matching)
- */
-const handleEditProduct = (productId: number) => {
-  const product = formattedInventory.find((p) => p.id === productId);
-  if (product) {
-    // Match category and supplier by ID
-    const matchedCategory = categories.find(cat => cat.name === product.categoryName);
-    const matchedSupplier = suppliers.find(sup => sup.name === product.supplierName);
+  const handleEditProduct = (productId: number) => {
+    const product = formattedInventory.find((p) => p.id === productId);
+    if (product) {
+      // Match category and supplier by ID
+      const matchedCategory = categories.find(cat => cat.name === product.categoryName);
+      const matchedSupplier = suppliers.find(sup => sup.name === product.supplierName);
 
-    setEditProduct({
-      ...product,
-      category_id: matchedCategory ? matchedCategory.id.toString() : "other", // ✅ Ensure correct ID
-      supplier_id: matchedSupplier ? matchedSupplier.id.toString() : "other", // ✅ Ensure correct ID
-      new_category: matchedCategory ? "" : product.categoryName, // ✅ Only set if it's a new category
-      new_supplier: matchedSupplier ? "" : product.supplierName, // ✅ Only set if it's a new supplier
-    });
+      setEditProduct({
+        ...product,
+        category_id: matchedCategory ? matchedCategory.id.toString() : "other",
+        supplier_id: matchedSupplier ? matchedSupplier.id.toString() : "other",
+        new_category: matchedCategory ? "" : product.categoryName,
+        new_supplier: matchedSupplier ? "" : product.supplierName,
+      });
 
-    setInventoryModalOpen(true);
-  }
-};
-
+      setInventoryModalOpen(true);
+    }
+  };
 
   /**
    * ✅ Open Confirm Dialog (Archive/Restore)
@@ -121,6 +118,7 @@ const handleEditProduct = (productId: number) => {
       } else if (confirmDialog.type === "restore") {
         await handleRestoreProduct(confirmDialog.id);
       }
+      refreshInventory(); // ✅ Ensure the table refreshes
     } catch (error) {
       console.error("Error processing action:", error);
     } finally {
@@ -142,7 +140,8 @@ const handleEditProduct = (productId: number) => {
 
     if (success) {
       setInventoryModalOpen(false);
-      setEditProduct(null); // ✅ Reset edit state
+      setEditProduct(null);
+      refreshInventory(); // ✅ Ensure the table refreshes
     }
     return success;
   };
@@ -171,31 +170,21 @@ const handleEditProduct = (productId: number) => {
 
       {/* ✅ DataTable with Loading Skeleton */}
       {loading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
+        <Skeleton className="h-10 w-full" />
       ) : (
-        <div className="w-full max-w-none px-0">
-          <DataTable
-            columns={getInventoryColumns(role, handleEditProduct, handleViewDetails, openConfirmDialog)}
-            data={formattedInventory}
-            searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}
-            defaultPageSize={5}
-            pagination
-            sorting
-          />
-        </div>
+        <DataTable
+          columns={getInventoryColumns(role, handleEditProduct, handleViewDetails, openConfirmDialog)}
+          data={formattedInventory}
+          searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}
+          defaultPageSize={5}
+          pagination
+          sorting
+        />
       )}
 
       {/* ✅ Product Details Modal */}
       {selectedProduct && (
-        <ProductDetailsModal
-          open={isDetailsOpen}
-          onClose={() => setIsDetailsOpen(false)}
-          product={selectedProduct}
-        />
+        <ProductDetailsModal open={isDetailsOpen} onClose={() => setIsDetailsOpen(false)} product={selectedProduct} />
       )}
 
       {/* ✅ Inventory Add/Edit Modal */}
@@ -206,11 +195,11 @@ const handleEditProduct = (productId: number) => {
             setInventoryModalOpen(false);
             setEditProduct(null);
           }}
-          onSubmit={handleInventorySubmit} // ✅ Ensures API call is properly handled
+          onSubmit={handleInventorySubmit}
           inventoryData={editProduct}
-          categories={categories} // ✅ Pass fetched categories
-          suppliers={suppliers} // ✅ Pass fetched suppliers
-          stores={stores} // ✅ Pass fetched stores
+          categories={categories}
+          suppliers={suppliers}
+          stores={stores}
         />
       )}
 

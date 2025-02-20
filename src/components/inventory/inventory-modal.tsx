@@ -7,11 +7,13 @@ import { z } from "zod";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useStores } from "@/hooks/useStores";
+import { useInventory } from "@/hooks/useInventory";
 
 /** ✅ Inventory Form Schema (Validation Using Zod) */
 const inventorySchema = z.object({
@@ -57,7 +59,7 @@ export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryDat
   const { suppliers } = useSuppliers();
   const { stores } = useStores();
 
-
+  const { addInventory, updateInventory, refreshInventory } = useInventory(); // ✅ Fix function name
 
   /** ✅ Initialize Form with Dynamic Default Values */
   const form = useForm<InventorySchemaType>({
@@ -129,26 +131,43 @@ useEffect(() => {
   /** ✅ Handle Form Submission */
   const handleSubmit = async (data: InventorySchemaType) => {
     setLoading(true);
-    if (customCategory) {
-      data.category_id = "new";
-      data.new_category = form.getValues("new_category");
+
+    let success = false;
+    if (inventoryData) {
+      success = await updateInventory(inventoryData.id, data);
+    } else {
+      success = await addInventory(data);
     }
-    const success = await onSubmit(data);
+
+    if (success) {
+      refreshInventory();
+      onClose();
+    }
+
     setLoading(false);
-    if (success) onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{inventoryData ? "Edit Inventory" : "Add Product"}</DialogTitle>
+          <DialogTitle>{inventoryData ? "Edit Product Details" : "Add Product & Inventory"}</DialogTitle>
         </DialogHeader>
-        <div className="overflow-y-auto max-h-[75vh] p-2">
+        <div className="overflow-y-auto max-h-[75vh] p-2 space-y-4">
+          {inventoryData && (
+            <Alert variant="warning">
+              <AlertTitle>⚠️ Warning: Global Product Edit</AlertTitle>
+              <AlertDescription>
+                Changes made here will **affect all stores** carrying this product.
+              </AlertDescription>
+            </Alert>
+          )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {/* ✅ Product Name */}
+          <div className="border-b pb-4">
+          <h2 className="text-lg font-semibold">Global Product Details</h2>
+           {/* ✅ Product Name */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
                 <FormLabel>Product Name</FormLabel>
@@ -248,10 +267,14 @@ useEffect(() => {
   )} />
 )}
 
+</div>
 
+{/* ✅ Store-Specific Details */}
+<div>
             {/* ✅ Store-Level Pricing & Stock Management */}
             {!inventoryData && (  <div className="space-y-4">
-              <Button type="button" onClick={() => append({ store_id: "", price: "", stock_quantity: "", low_stock_threshold: "" })}>➕ Add Store</Button>
+                <h2 className="text-lg font-semibold">Store-Level Inventory</h2>
+                <Button type="button" onClick={() => append({ store_id: "", price: "", stock_quantity: "", low_stock_threshold: "" })}>➕ Add Store</Button>
               {fields.map((field, index) => (
                 <div key={field.id} className="flex flex-col gap-2 p-3 border rounded-lg">
                   <FormField control={form.control} name={`stores.${index}.store_id`} render={({ field }) => (
@@ -281,7 +304,7 @@ useEffect(() => {
                 </div>
               ))}
             </div>
-            )}
+            )}</div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
               <Button type="submit" disabled={loading}>{loading ? "Saving..." : inventoryData ? "Update" : "Save"}</Button>
