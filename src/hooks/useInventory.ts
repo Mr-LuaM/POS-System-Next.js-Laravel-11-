@@ -2,154 +2,152 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { 
-  getProducts, 
+  getInventory, 
   addProduct, 
   updateProduct, 
+  manageStock, 
   archiveProduct, 
   restoreProduct, 
   deleteProduct, 
-  manageStock, 
-  getLowStockAlerts, 
-  StoreProduct 
+  getLowStockProducts, 
+  InventoryProduct 
 } from "@/services/inventory";
 import { toast } from "sonner";
 
 /**
- * ✅ Custom Hook for Managing Store-Specific Inventory
+ * ✅ Custom Hook for Managing Inventory (Supports Active & Archived Products)
  */
-export const useInventory = (storeId?: number) => {
-  const [products, setProducts] = useState<StoreProduct[]>([]);
+export const useInventory = () => {
+  const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isError, setIsError] = useState<boolean>(false);
-  const [archivedFilter, setArchivedFilter] = useState<"true" | "false" | "all">("all");
+  const [archivedFilter, setArchivedFilter] = useState<boolean | null>(null); // ✅ NULL = fetch all products
 
   /**
-   * ✅ Fetch Store-Specific Products (Active, Archived, or All)
+   * ✅ Fetch Inventory from API (Supports Active, Archived & All Products)
    */
-  const fetchProducts = useCallback(async () => {
+  const fetchInventory = useCallback(async () => {
     setLoading(true);
     setIsError(false);
     try {
-      const data = await getProducts(archivedFilter, storeId);
-      setProducts(data);
+      const data = await getInventory(archivedFilter ?? false); // ✅ Pass filter dynamically
+      setInventory(data);
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to fetch products."}`);
+      toast.error(`Error: ${error.message || "Failed to fetch inventory."}`);
       setIsError(true);
     } finally {
       setLoading(false);
     }
-  }, [archivedFilter, storeId]);
+  }, [archivedFilter]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    fetchInventory();
+  }, [fetchInventory]);
 
   /**
-   * ✅ Add or Update Product (Handles Multiple Store Pricing & Stock)
+   * ✅ Add or Update Product (With Validation & Auto-Refresh)
    */
-  const saveProduct = async (
-    productData: Partial<StoreProduct>,
-    stores: Array<{ store_id: number; price: number; stock_quantity: number; low_stock_threshold?: number }>,
-    id?: number
-  ): Promise<boolean> => {
+  const saveProduct = async (productData: Partial<InventoryProduct>, id?: number): Promise<boolean> => {
     try {
       if (id) {
-        await updateProduct(id, productData, stores);
-        toast.success("✅ Product updated successfully.");
+        await updateProduct(id, productData);
+        toast.success("Success: Product updated successfully.");
       } else {
-        await addProduct(productData as StoreProduct, stores);
-        toast.success("✅ Product added successfully.");
+        await addProduct(productData as InventoryProduct);
+        toast.success("Success: Product added successfully.");
       }
-      await fetchProducts();
+      fetchInventory();
       return true;
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to save product."}`);
+      toast.error(`Error: ${error.message || "Failed to save product."}`);
       return false;
     }
   };
 
   /**
-   * ✅ Archive (Soft Delete) Product for a Specific Store
+   * ✅ Manage Stock for a Product (Restock, Sale, Damage, Return, Adjustment)
    */
-  const handleArchiveProduct = async (storeProductId: number): Promise<void> => {
+  const updateStock = async (storeProductId: number, stockData: { type: string; quantity: number; reason?: string }): Promise<boolean> => {
     try {
-      await archiveProduct(storeProductId);
-      toast.success("✅ Product archived successfully.");
-      await fetchProducts();
+      await manageStock(storeProductId, stockData);
+      toast.success(`Success: Stock ${stockData.type} successfully.`);
+      fetchInventory();
+      return true;
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to archive product."}`);
+      toast.error(`Error: ${error.message || "Failed to update stock."}`);
+      return false;
     }
   };
 
   /**
-   * ✅ Restore Product for a Specific Store
+   * ✅ Archive (Soft Delete) Product
    */
-  const handleRestoreProduct = async (storeProductId: number): Promise<void> => {
+  const handleArchiveProduct = async (id: number) => {
     try {
-      await restoreProduct(storeProductId);
-      toast.success("✅ Product restored successfully.");
-      await fetchProducts();
+      await archiveProduct(id);
+      toast.success("Success: Product archived successfully.");
+      fetchInventory();
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to restore product."}`);
+      toast.error(`Error: ${error.message || "Failed to archive product."}`);
     }
   };
 
   /**
-   * ✅ Permanently Delete Product (Only if Archived in All Stores)
+   * ✅ Restore Product
    */
-  const handleDeleteProduct = async (storeProductId: number): Promise<void> => {
+  const handleRestoreProduct = async (id: number) => {
     try {
-      await deleteProduct(storeProductId);
-      toast.success("✅ Product permanently deleted.");
-      await fetchProducts();
+      await restoreProduct(id);
+      toast.success("Success: Product restored successfully.");
+      fetchInventory();
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to delete product."}`);
+      toast.error(`Error: ${error.message || "Failed to restore product."}`);
     }
   };
 
   /**
-   * ✅ Manage Stock for a Store-Specific Product
+   * ✅ Permanently Delete Product (Only if Archived)
    */
-  const handleManageStock = async (
-    storeProductId: number,
-    type: "restock" | "sale" | "adjustment" | "damage" | "return",
-    quantity: number,
-    reason?: string
-  ) => {
+  const handleDeleteProduct = async (id: number) => {
     try {
-      await manageStock(storeProductId, type, quantity, reason);
-      toast.success(`✅ Stock ${type} recorded.`);
-      await fetchProducts();
+      await deleteProduct(id);
+      toast.success("Success: Product permanently deleted.");
+      fetchInventory();
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to update stock."}`);
+      toast.error(`Error: ${error.message || "Failed to delete product."}`);
     }
   };
 
   /**
-   * ✅ Fetch Low Stock Alerts for a Specific Store
+   * ✅ Fetch Low-Stock Products
    */
-  const fetchLowStockAlerts = async (): Promise<StoreProduct[]> => {
+  const fetchLowStockProducts = async (storeId?: number) => {
+    setLoading(true);
+    setIsError(false);
     try {
-      const lowStockProducts = await getLowStockAlerts(storeId);
-      return lowStockProducts;
+      const data = await getLowStockProducts(storeId);
+      return data; // ✅ Returns low-stock products
     } catch (error: any) {
-      toast.error(`❌ ${error.message || "Failed to fetch low stock alerts."}`);
+      toast.error(`Error: ${error.message || "Failed to fetch low-stock products."}`);
+      setIsError(true);
       return [];
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
-    products,
+    inventory,
     loading,
     isError,
     saveProduct,
+    updateStock,
     handleArchiveProduct,
     handleRestoreProduct,
     handleDeleteProduct,
-    handleManageStock,
-    fetchLowStockAlerts,
-    refreshProducts: fetchProducts,
-    archivedFilter,
-    setArchivedFilter,
+    fetchLowStockProducts,
+    refreshInventory: fetchInventory,
+    archivedFilter, // ✅ Expose archived filter
+    setArchivedFilter, // ✅ Expose filter setter
   };
 };

@@ -27,19 +27,24 @@ interface FilterDropdownProps {
 }
 
 /**
- * ✅ Fixed Filter Dropdown (Ensures Search & Selection Work Properly)
+ * ✅ Optimized Filter Dropdown (Fixes Search, Selection & UX)
  */
 export default function FilterDropdown({
   label,
   options,
-  selectedValue,
+  selectedValue = "all", // ✅ Ensure default value
   onChange,
   loading = false,
 }: FilterDropdownProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  // ✅ Filters options based on search term (case-insensitive)
+  // ✅ Reset search term when selection changes
+  React.useEffect(() => {
+    setSearchTerm(""); 
+  }, [selectedValue]);
+
+  // ✅ Properly filter options based on search term (case-insensitive)
   const filteredOptions = React.useMemo(() => {
     return options.filter((option) =>
       option.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -48,8 +53,7 @@ export default function FilterDropdown({
 
   // ✅ Find selected label dynamically
   const selectedLabel =
-    options.find((option) => option.id === selectedValue)?.name ||
-    `Select ${label}...`;
+    options.find((option) => option.id === selectedValue)?.name || `Select ${label}...`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -67,37 +71,38 @@ export default function FilterDropdown({
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0">
         <Command>
-          {/* ✅ Search Input */}
           <CommandInput
             placeholder={`Search ${label}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            autoFocus // ✅ Autofocus input when dropdown opens
+            autoFocus
           />
           <CommandList>
-            <CommandEmpty>No {label} found.</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.id}
-                  value={option.id}
-                  onSelect={() => {
-                    onChange(option.id); // ✅ Correctly update the selected value
-                    setOpen(false); // ✅ Close dropdown after selection
-                    setSearchTerm(""); // ✅ Reset search after selecting
-                  }}
-                  className="cursor-pointer"
-                >
-                  {option.name}
-                  <Check
-                    className={cn(
-                      "ml-auto",
-                      selectedValue === option.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {filteredOptions.length === 0 ? (
+              <CommandEmpty>No {label} found.</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {filteredOptions.map((option) => (
+                  <CommandItem
+                    key={option.id}
+                    value={option.id}
+                    onSelect={() => {
+                      onChange(option.id); // ✅ Pass correct value
+                      setOpen(false); // ✅ Close dropdown after selection
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {option.name}
+                    <Check
+                      className={cn(
+                        "ml-auto transition-opacity",
+                        selectedValue === option.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

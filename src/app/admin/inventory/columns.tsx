@@ -2,36 +2,20 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Edit, Archive, RefreshCcw, Trash, Package } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Edit, Archive, RefreshCcw, Trash } from "lucide-react";
 
-export interface Store {
-  id: number;
-  name: string;
-}
-
-export interface Category {
-  id: number;
-  name: string;
-}
-
-export interface Supplier {
-  id: number;
-  name: string;
-  contact?: string;
-  email?: string;
-  address?: string;
-}
-
-export interface StoreProduct {
+/**
+ * ✅ Define TypeScript Interface for Inventory Product Data
+ */
+export interface InventoryProduct {
   id: number;
   store_id: number;
   product_id: number;
   price: number;
   stock_quantity: number;
-  low_stock_threshold: number;
-  deleted_at?: string | null;
-  product?: {
+  low_stock_threshold?: number;
+  deleted_at?: string | null; // ✅ Check if product is archived
+  product: {
     id: number;
     name: string;
     sku: string;
@@ -39,131 +23,95 @@ export interface StoreProduct {
     qr_code?: string;
     category_id?: number;
     supplier_id?: number;
-    category?: Category;
-    supplier?: Supplier;
+    category?: {
+      id: number;
+      name: string;
+    };
+    supplier?: {
+      id: number;
+      name: string;
+    };
   };
-  store?: Store;
 }
 
 /**
- * ✅ Store-Specific Product Table Columns
+ * ✅ Inventory Table Columns (Handles Edit, Archive, Restore, and Delete)
  */
-export const getProductColumns = (
-  handleEdit: (product: StoreProduct) => void,
-  openConfirmDialog: (id: number, type: "archive" | "restore" | "delete") => void,
-  openManageStock: (product: StoreProduct) => void
-): ColumnDef<StoreProduct>[] => [
+export const getInventoryColumns = (
+  handleEdit: (product: InventoryProduct) => void,
+  openConfirmDialog: (id: number, type: "archive" | "restore" | "delete") => void
+): ColumnDef<InventoryProduct>[] => [
   {
-    accessorKey: "store.name",
-    header: "Store",
-    cell: ({ row }) => <span className="font-medium">{row.original.store?.name || "—"}</span>,
-  },
-  {
-    accessorKey: "product.name",
+    accessorKey: "product.name", // Access product.name correctly from the nested product object
     header: "Product Name",
-    cell: ({ row }) => <span className="font-medium">{row.original.product?.name || "—"}</span>,
+    cell: ({ row }) => <span className="text-foreground font-medium">{row.original.product.name}</span>,
   },
   {
-    accessorKey: "product.sku",
+    accessorKey: "product.sku", // Access SKU correctly from the nested product object
     header: "SKU",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.product?.sku || "—"}</span>,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.product.sku}</span>,
   },
   {
-    accessorKey: "product.category.name",
-    header: "Category",
-    cell: ({ row }) => <span>{row.original.product?.category?.name || "—"}</span>,
-  },
-  {
-    accessorKey: "product.supplier.name",
-    header: "Supplier",
-    cell: ({ row }) => <span>{row.original.product?.supplier?.name || "—"}</span>,
-  },
-  {
-    accessorKey: "price",
+    accessorKey: "price", // Directly access price
     header: "Price",
-    cell: ({ row }) => `₱${row.original.price.toFixed(2)}`,
+    cell: ({ row }) => <span className="text-muted-foreground">${row.original.price.toFixed(2)}</span>,
   },
   {
-    accessorKey: "stock_quantity",
-    header: "Stock",
-    cell: ({ row }) => {
-      const { stock_quantity, low_stock_threshold } = row.original;
-      return (
-        <span className={stock_quantity <= low_stock_threshold ? "text-red-500 font-semibold" : ""}>
-          {stock_quantity}
-        </span>
-      );
-    },
+    accessorKey: "stock_quantity", // Directly access stock_quantity
+    header: "Stock Quantity",
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.stock_quantity}</span>,
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const isArchived = !!row.original.deleted_at;
-      return (
-        <span className={isArchived ? "text-red-500 font-semibold" : "text-green-600 font-semibold"}>
-          {isArchived ? "Archived" : "Active"}
-        </span>
-      );
-    },
+    accessorKey: "low_stock_threshold", // Access low_stock_threshold
+    header: "Low Stock Threshold",
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.low_stock_threshold || "N/A"}</span>,
   },
   {
     id: "actions",
     header: "Actions",
     cell: ({ row }) => {
       const product = row.original;
-      const isArchived = !!product.deleted_at;
+      const isArchived = !!product.deleted_at; // ✅ Check if archived
 
       return (
-        <TooltipProvider>
-          <div className="flex gap-2">
-            {/* ✅ Edit Product */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={() => handleEdit(product)}>
-                  <Edit className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Edit Product</TooltipContent>
-            </Tooltip>
+        <div className="flex gap-2 justify-center">
+          {/* ✅ Edit Button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => handleEdit(product)}
+            className="border-border"
+            aria-label="Edit Product"
+          >
+            <Edit className="w-4 h-4 text-muted-foreground" />
+          </Button>
 
-            {/* ✅ Manage Stock */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="secondary" size="icon" onClick={() => openManageStock(product)}>
-                  <Package className="w-4 h-4 text-blue-500" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Manage Stock</TooltipContent>
-            </Tooltip>
-
-            {/* ✅ Archive or Restore */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={isArchived ? "secondary" : "destructive"}
-                  size="icon"
-                  onClick={() => openConfirmDialog(product.id, isArchived ? "restore" : "archive")}
-                >
-                  {isArchived ? <RefreshCcw className="w-4 h-4 text-green-600" /> : <Archive className="w-4 h-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isArchived ? "Restore Product" : "Archive Product"}</TooltipContent>
-            </Tooltip>
-
-            {/* ✅ Permanent Delete (Only if Archived) */}
-            {isArchived && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => openConfirmDialog(product.id, "delete")}>
-                    <Trash className="w-4 h-4 text-red-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete Product</TooltipContent>
-              </Tooltip>
+          {/* ✅ Archive or Restore Button */}
+          <Button
+            variant={isArchived ? "secondary" : "destructive"}
+            size="icon"
+            onClick={() => openConfirmDialog(product.id, isArchived ? "restore" : "archive")}
+            aria-label={isArchived ? "Restore Product" : "Archive Product"}
+          >
+            {isArchived ? (
+              <RefreshCcw className="w-4 h-4 text-green-600" />
+            ) : (
+              <Archive className="w-4 h-4 text-white" />
             )}
-          </div>
-        </TooltipProvider>
+          </Button>
+
+          {/* ✅ Permanent Delete Button (Only if Archived) */}
+          {isArchived && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => openConfirmDialog(product.id, "delete")}
+              aria-label="Delete Product"
+            >
+              <Trash className="w-4 h-4 text-red-600" />
+            </Button>
+          )}
+        </div>
       );
     },
   },

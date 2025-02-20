@@ -1,124 +1,177 @@
 "use client";
 
 import { useInventory } from "@/hooks/useInventory";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DataTable } from "@/components/common/data-table";
-import { getProductColumns } from "./columns";
+import { getInventoryColumns } from "./columns";
 import InventoryModal from "./inventory-modal";
-import StockManageModal from "./stock-modal"; // ✅ Stock Management Modal
 import ConfirmDialog from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import InventoryFilters from "./filters"; // ✅ Import Filters
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"; // ✅ Active/Archived toggle
 
 /**
- * ✅ Inventory Table (Handles CRUD, Archive, Restore, Manage Stock)
+ * ✅ Inventory Table (Handles Full CRUD & Archive)
  */
 export default function InventoryTable() {
-  const [selectedStore, setSelectedStore] = useState<string>("all");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
-
-  const { 
-    products, 
-    loading, 
-    saveProduct, 
+  const {
+    inventory,
+    loading,
+    saveProduct,
+    updateStock,
     handleArchiveProduct,
     handleRestoreProduct,
     handleDeleteProduct,
-    handleManageStock, 
-    archivedFilter, 
-    setArchivedFilter 
-  } = useInventory(selectedStore, selectedCategory, selectedSupplier); // ✅ Pass filters
+    fetchLowStockProducts,
+    archivedFilter,
+    setArchivedFilter,
+  } = useInventory();
 
-  const [productData, setProductData] = useState<any | null>(null);
+  const [productData, setProductData] = useState<{ id?: number; name: string; price: number; stock_quantity: number } | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [isStockModalOpen, setStockModalOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ id: number; type: "archive" | "restore" | "delete" } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
+  /**
+   * ✅ Open Add Product Modal
+   */
   const openAddModal = () => {
     setProductData(null);
     setModalOpen(true);
   };
 
-  const openEditModal = (product: any) => {
+  /**
+   * ✅ Open Edit Product Modal
+   */
+  const openEditModal = (product: InventoryProduct) => {
     setProductData(product);
     setModalOpen(true);
   };
 
-  const openManageStock = (product: any) => {
-    setProductData(product);
-    setStockModalOpen(true);
-  };
-
+  /**
+   * ✅ Open Confirm Dialog
+   */
   const openConfirmDialog = (id: number, type: "archive" | "restore" | "delete") => {
     setConfirmDialog({ id, type });
   };
 
+  /**
+   * ✅ Handle Add or Update Product Submission
+   */
+  const handleSubmitProduct = async (data: Partial<InventoryProduct>) => {
+    const success = await saveProduct(data, productData?.id);
+    if (success) {
+      setModalOpen(false);
+    }
+  };
+
+  /**
+   * ✅ Handle Archive, Restore, or Delete Confirmation with Loading
+   */
+  const handleConfirmAction = async () => {
+    if (!confirmDialog) return;
+
+    setConfirmLoading(true);
+    try {
+      if (confirmDialog.type === "archive") {
+        await handleArchiveProduct(confirmDialog.id);
+      } else if (confirmDialog.type === "restore") {
+        await handleRestoreProduct(confirmDialog.id);
+      } else if (confirmDialog.type === "delete") {
+        await handleDeleteProduct(confirmDialog.id);
+      }
+    } catch (error) {
+      console.error("Error processing action:", error);
+    } finally {
+      setConfirmDialog(null);
+      setConfirmLoading(false);
+    }
+  };
+
   return (
     <div className="w-full p-6 space-y-6">
-      {/* ✅ Header */}
+      {/* ✅ Page Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
-        <Button onClick={openAddModal}>+ Add Product</Button>
+        <Button onClick={openAddModal} className="px-4 py-2">+ Add Product</Button>
       </div>
 
-      {/* ✅ Filters */}
-      <InventoryFilters
-        selectedStore={selectedStore}
-        setSelectedStore={setSelectedStore}
-        selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
-        selectedSupplier={selectedSupplier}
-        setSelectedSupplier={setSelectedSupplier}
-      />
-
-      {/* ✅ Toggle Active/Archived */}
+      {/* ✅ Toggle Active/Archived Products */}
       <div className="flex justify-end">
-        <ToggleGroup value={archivedFilter} onValueChange={setArchivedFilter} type="single" className="mb-4">
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="false">Active</ToggleGroupItem>
-          <ToggleGroupItem value="true">Archived</ToggleGroupItem>
+        <ToggleGroup
+          type="single"
+          value={archivedFilter === "true" ? "archived" : archivedFilter === "false" ? "active" : "all"}
+          onValueChange={(value) => setArchivedFilter(value === "archived" ? "true" : value === "active" ? "false" : null)}
+          className="mb-4"
+        >
+          <ToggleGroupItem value="all">All Products</ToggleGroupItem>
+          <ToggleGroupItem value="active">Active Products</ToggleGroupItem>
+          <ToggleGroupItem value="archived">Archived Products</ToggleGroupItem>
         </ToggleGroup>
       </div>
 
-      {/* ✅ Table */}
+      {/* ✅ DataTable with Loading Skeleton */}
       {loading ? (
-        <Skeleton className="h-10 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
       ) : (
-        <DataTable
-          columns={getProductColumns(openEditModal, openConfirmDialog, openManageStock)}
-          data={products}
-          searchKey="name"
-        />
+        <div className="w-full max-w-none px-0">
+          <DataTable
+            columns={getInventoryColumns(openEditModal, openConfirmDialog)}
+            data={inventory}
+            searchKey="product.name"
+          />
+        </div>
       )}
 
       {/* ✅ Inventory Modal */}
-      <InventoryModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} productData={productData} />
-
-      {/* ✅ Stock Management Modal */}
-      <StockManageModal
-        isOpen={isStockModalOpen}
-        onClose={() => setStockModalOpen(false)}
-        productData={productData}
-        onSubmit={handleManageStock}
+      <InventoryModal 
+        isOpen={isModalOpen} 
+        onClose={() => setModalOpen(false)} 
+        onSubmit={handleSubmitProduct} 
+        productData={productData || undefined} 
       />
 
-      {/* ✅ Confirm Dialog */}
+      {/* ✅ Confirm Dialog with Loading */}
       {confirmDialog && (
         <ConfirmDialog
           key={confirmDialog.id}
           open={true}
-          onConfirm={() => {
-            if (confirmDialog.type === "archive") handleArchiveProduct(confirmDialog.id);
-            if (confirmDialog.type === "restore") handleRestoreProduct(confirmDialog.id);
-            if (confirmDialog.type === "delete") handleDeleteProduct(confirmDialog.id);
-            setConfirmDialog(null);
-          }}
+          onConfirm={handleConfirmAction}
           onCancel={() => setConfirmDialog(null)}
-          title={`Are you sure you want to ${confirmDialog.type} this product?`}
-          confirmLabel={confirmDialog.type}
+          title={
+            confirmDialog.type === "archive"
+              ? "Archive Product"
+              : confirmDialog.type === "restore"
+              ? "Restore Product"
+              : "Delete Product"
+          }
+          description={
+            confirmDialog.type === "archive"
+              ? "Are you sure you want to archive this product? You can restore it later."
+              : confirmDialog.type === "restore"
+              ? "Are you sure you want to restore this product?"
+              : "Are you sure you want to permanently delete this product? This action cannot be undone."
+          }
+          confirmLabel={
+            confirmDialog.type === "archive"
+              ? "Archive"
+              : confirmDialog.type === "restore"
+              ? "Restore"
+              : "Delete"
+          }
+          cancelLabel="Cancel"
+          confirmVariant={
+            confirmDialog.type === "archive"
+              ? "outline"
+              : confirmDialog.type === "restore"
+              ? "secondary"
+              : "destructive"
+          }
+          loading={confirmLoading}
         />
       )}
     </div>
