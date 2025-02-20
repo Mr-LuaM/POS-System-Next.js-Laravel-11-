@@ -1,6 +1,6 @@
 "use client";
 
-import CategoriesTable from "./table";
+import CategoriesTable from "../../../components/categories/table";
 
 /**
  * ✅ Categories Page (Now Only Renders the Table)

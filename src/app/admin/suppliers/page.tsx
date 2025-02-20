@@ -1,6 +1,6 @@
 "use client";
 
-import SuppliersTable from "./table";
+import SuppliersTable from "../../../components/suppliers/table";
 
 /**
  * ✅ Suppliers Page (Renders Full CRUD Table)

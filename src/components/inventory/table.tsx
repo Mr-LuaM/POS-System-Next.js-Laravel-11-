@@ -5,37 +5,57 @@ import { useState } from "react";
 import { DataTable } from "@/components/common/data-table";
 import { getInventoryColumns } from "./columns";
 import ConfirmDialog from "@/components/common/confirm-dialog";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"; // ✅ Active/Archived toggle
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import ProductDetailsModal from "./details-modal";
 
 /**
  * ✅ Inventory Table (Handles Full CRUD & Archive)
  */
-export default function InventoryTable() {
+export default function InventoryTable({ role }: { role: "admin" | "manager" }) {
   const {
     inventory,
     loading,
     handleArchiveProduct,
     handleRestoreProduct,
-    refreshInventory,
     archivedFilter,
     setArchivedFilter,
   } = useInventory();
 
   const [confirmDialog, setConfirmDialog] = useState<{ id: number; type: "archive" | "restore" } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
 
   /**
    * ✅ Format Inventory Data (Flatten Nested Properties)
    */
   const formattedInventory = inventory.map((item) => ({
-    ...item,
-    productName: item.product?.name || "N/A",
-    productSKU: item.product?.sku || "N/A",
-    productBarcode: item.product?.barcode || "N/A",
-    storeName: item.store?.name || "N/A",
+    id: item.id,
+    productName: item.product?.name ?? "Unnamed Product",
+    productSKU: item.product?.sku ?? "N/A",
+    categoryName: item.product?.category?.name ?? "N/A",
+    supplierName: item.product?.supplier?.name ?? "N/A", // ✅ Fix for null supplier
+    storeName: item.store?.name ?? "N/A",
+    price: item.price ?? 0,
+    stock: item.stock_quantity ?? 0,
+    low_stock_threshold: item.low_stock_threshold ?? 0,
+    created_at: item.created_at ?? "N/A",
+    updated_at: item.updated_at ?? "N/A",
+    deleted_at: item.deleted_at ?? null, // ✅ Store-level archive
+    product_deleted_at: item.product?.deleted_at ?? null, // ✅ Global product archive
   }));
+
+  /**
+   * ✅ Open Product Details Modal
+   */
+  const handleViewDetails = (productId: number) => {
+    const product = formattedInventory.find((p) => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setIsDetailsOpen(true);
+    }
+  };
 
   /**
    * ✅ Open Confirm Dialog
@@ -70,7 +90,6 @@ export default function InventoryTable() {
       {/* ✅ Page Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
-        <Button onClick={refreshInventory} className="px-4 py-2">Refresh</Button>
       </div>
 
       {/* ✅ Toggle Active/Archived Products */}
@@ -97,11 +116,23 @@ export default function InventoryTable() {
       ) : (
         <div className="w-full max-w-none px-0">
           <DataTable
-            columns={getInventoryColumns(() => {}, openConfirmDialog)}
-            data={formattedInventory} // ✅ Use the flattened data
-            searchKeys={["productName", "productSKU", "productBarcode", "storeName"]} // ✅ Search works across multiple columns
+            columns={getInventoryColumns(role, () => {}, handleViewDetails, openConfirmDialog)}
+            data={formattedInventory} // ✅ Use the fixed inventory data
+            searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]} // ✅ Search across multiple columns
+            defaultPageSize={5} // ✅ Default pagination size
+            pagination // ✅ Enable pagination
+            sorting // ✅ Enable sorting
           />
         </div>
+      )}
+
+      {/* ✅ Product Details Modal */}
+      {selectedProduct && (
+        <ProductDetailsModal
+          open={isDetailsOpen}
+          onClose={() => setIsDetailsOpen(false)}
+          product={selectedProduct}
+        />
       )}
 
       {/* ✅ Confirm Dialog */}
@@ -111,11 +142,7 @@ export default function InventoryTable() {
           open={true}
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmDialog(null)}
-          title={
-            confirmDialog.type === "archive"
-              ? "Archive Product"
-              : "Restore Product"
-          }
+          title={confirmDialog.type === "archive" ? "Archive Product" : "Restore Product"}
           description={
             confirmDialog.type === "archive"
               ? "Are you sure you want to archive this product?"

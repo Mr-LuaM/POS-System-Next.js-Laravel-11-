@@ -1,6 +1,6 @@
 "use client";
 
-import UsersTable from "./table";
+import UsersTable from "../../../components/users/table";
 
 /**
  * ✅ Users Page (Renders Full CRUD Table)

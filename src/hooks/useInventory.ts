@@ -30,11 +30,14 @@ export const useInventory = () => {
     setLoading(true);
     setIsError(false);
     try {
-      const data = await getInventory(archivedFilter ?? false);
-
+      // ✅ Ensure archived=null is sent as a query param
+      const filter = archivedFilter === null ? "null" : archivedFilter.toString();
+      const data = await getInventory(filter);
+  
       // 🔹 Restrict inventory visibility for Managers & Cashiers
-      const filteredData = role === "admin" ? data : data.filter((item) => item.store_id === Number(storeId));
-
+      const filteredData =
+        role === "admin" ? data : data.filter((item) => item.store_id === Number(storeId));
+  
       setInventory(filteredData);
     } catch (error: any) {
       toast.error(`❌ Error: ${error.message || "Failed to fetch inventory."}`);
@@ -43,6 +46,8 @@ export const useInventory = () => {
       setLoading(false);
     }
   }, [archivedFilter, role, storeId]);
+  
+  
 
   // ✅ Fetch inventory on mount & filter change
   useEffect(() => {

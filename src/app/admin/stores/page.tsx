@@ -1,6 +1,6 @@
 "use client";
 
-import StoresTable from "./table";
+import StoresTable from "../../../components/stores/table";
 
 /**
  * ✅ Stores Page (Renders Full CRUD Table)

@@ -1,14 +1,14 @@
 "use client";
 
-import InventoryTable from "./table";
+import InventoryTable from "@/components/inventory/table";
 
 /**
  * ✅ Inventory Page (Renders Full CRUD Table)
  */
-export default function InventoryPage() {
+export default function AdminInventoryPage() {
   return (
     <div className="w-full">
-      <InventoryTable />
+      <InventoryTable role="admin" />
     </div>
   );
 }
