@@ -8,6 +8,8 @@ import ConfirmDialog from "@/components/common/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import ProductDetailsModal from "./details-modal";
+import InventoryModal from "./inventory-modal"; // ✅ Import Inventory Modal
+import { Button } from "@/components/ui/button"; // ✅ Fix missing import
 
 /**
  * ✅ Inventory Table (Handles Full CRUD & Archive)
@@ -26,6 +28,8 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [isInventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState<any | null>(null);
 
   /**
    * ✅ Format Inventory Data (Flatten Nested Properties)
@@ -35,11 +39,16 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     productName: item.product?.name ?? "Unnamed Product",
     productSKU: item.product?.sku ?? "N/A",
     categoryName: item.product?.category?.name ?? "N/A",
-    supplierName: item.product?.supplier?.name ?? "N/A", // ✅ Fix for null supplier
+    supplier: item.product?.supplier ?? null, // ✅ Ensure supplier object is included
+    supplierName: item.product?.supplier?.name ?? "N/A", // ✅ Fix supplier mapping
+    store: item.store ?? null, // ✅ Ensure store object is included
     storeName: item.store?.name ?? "N/A",
+    storeLocation: item.store?.location ?? "N/A", // ✅ Ensure store location is mapped correctly
     price: item.price ?? 0,
     stock: item.stock_quantity ?? 0,
     low_stock_threshold: item.low_stock_threshold ?? 0,
+    barcode: item.product?.barcode ?? null, // ✅ Ensure barcode is included
+    qr_code: item.product?.qr_code ?? null, // ✅ Ensure QR code is included
     created_at: item.created_at ?? "N/A",
     updated_at: item.updated_at ?? "N/A",
     deleted_at: item.deleted_at ?? null, // ✅ Store-level archive
@@ -58,14 +67,25 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   };
 
   /**
-   * ✅ Open Confirm Dialog
+   * ✅ Open Edit Inventory Modal
+   */
+  const handleEditProduct = (productId: number) => {
+    const product = formattedInventory.find((p) => p.id === productId);
+    if (product) {
+      setEditProduct(product);
+      setInventoryModalOpen(true);
+    }
+  };
+
+  /**
+   * ✅ Open Confirm Dialog (Archive/Restore)
    */
   const openConfirmDialog = (id: number, type: "archive" | "restore") => {
     setConfirmDialog({ id, type });
   };
 
   /**
-   * ✅ Handle Confirm Action
+   * ✅ Handle Confirm Action (Archive/Restore)
    */
   const handleConfirmAction = async () => {
     if (!confirmDialog) return;
@@ -90,6 +110,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
       {/* ✅ Page Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
+        <Button onClick={() => setInventoryModalOpen(true)}>+ Add Product</Button>
       </div>
 
       {/* ✅ Toggle Active/Archived Products */}
@@ -116,7 +137,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
       ) : (
         <div className="w-full max-w-none px-0">
           <DataTable
-            columns={getInventoryColumns(role, () => {}, handleViewDetails, openConfirmDialog)}
+            columns={getInventoryColumns(role, handleEditProduct, handleViewDetails, openConfirmDialog)}
             data={formattedInventory} // ✅ Use the fixed inventory data
             searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]} // ✅ Search across multiple columns
             defaultPageSize={5} // ✅ Default pagination size
@@ -132,6 +153,25 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
           open={isDetailsOpen}
           onClose={() => setIsDetailsOpen(false)}
           product={selectedProduct}
+        />
+      )}
+
+      {/* ✅ Inventory Edit/Add Modal */}
+      {isInventoryModalOpen && (
+        <InventoryModal
+          isOpen={isInventoryModalOpen}
+          onClose={() => {
+            setInventoryModalOpen(false);
+            setEditProduct(null); // ✅ Reset edit state
+          }}
+          onSubmit={async (data) => {
+            console.log("Saving Inventory:", data);
+            return true; // ✅ Replace with actual API call
+          }}
+          inventoryData={editProduct}
+          categories={[]} // ✅ Replace with fetched categories
+          suppliers={[]} // ✅ Replace with fetched suppliers
+          stores={[]} // ✅ Replace with fetched stores
         />
       )}
 
