@@ -1,58 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { login } from "@/services/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 
+/**
+ * ✅ Login Page - Uses `useAuth` Hook for Authentication
+ */
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const { login } = useAuth(); // ✅ Use Auth Hook
 
+  /**
+   * ✅ Handle Input Change
+   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCredentials((prev) => ({ ...prev, [e.target.id]: e.target.value }));
+  };
+
+  /**
+   * ✅ Handle Login
+   */
   const handleLogin = async () => {
     setLoading(true);
-    try {
-      const response = await login(email, password);
-      const { token, user } = response.data;
-
-      // ✅ Store session data
-      sessionStorage.clear();
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem("role", user.role);
-      sessionStorage.setItem("userId", user.id);
-      sessionStorage.setItem("userName", user.name);
-      sessionStorage.setItem("userEmail", user.email);
-
-      toast.success("✅ Login successful!", {
-        description: "Redirecting to dashboard...",
-        duration: 3000,
-      });
-
-      // ✅ Redirect based on role
-      setTimeout(() => {
-        if (user.role === "admin") router.push("/admin");
-        else if (user.role === "cashier") router.push("/cashier");
-        else if (user.role === "manager") router.push("/manager");
-        else router.push("/");
-      }, 1500);
-    } catch (error) {
-      let message = "Invalid credentials. Please try again.";
-      
-      if (error.response?.status === 403) message = "Please verify your email before logging in.";
-      else if (error.response?.status === 500) message = "Server error. Please try again later.";
-      else message = "Network error. Check your connection.";
-
-      toast.error("❌ Login failed!", { description: message });
-    } finally {
-      setLoading(false);
-    }
+    await login(credentials.email, credentials.password);
+    setLoading(false);
   };
 
   return (
@@ -64,10 +41,29 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* ✅ Email Input */}
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="Enter your email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={credentials.email}
+              onChange={handleChange}
+              autoComplete="email"
+            />
+
+            {/* ✅ Password Input */}
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="Enter your password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={credentials.password}
+              onChange={handleChange}
+              autoComplete="current-password"
+            />
+
+            {/* ✅ Login Button */}
             <Button className="w-full bg-primary text-white" onClick={handleLogin} disabled={loading}>
               {loading ? "Logging in..." : "Login"}
             </Button>

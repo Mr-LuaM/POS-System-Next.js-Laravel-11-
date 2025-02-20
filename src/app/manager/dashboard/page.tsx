@@ -1,10 +1,9 @@
 "use client";
 
-import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function ManagerDashboard() {
   return (
-    <ProtectedRoute allowedRoles={["manager"]}>
+   
       <div className="p-6">
         <h1 className="text-2xl font-bold">Manager Dashboard</h1>
         <p>Welcome, Manager! You can oversee store operations here.</p>
@@ -27,6 +26,6 @@ export default function ManagerDashboard() {
           </div>
         </div>
       </div>
-    </ProtectedRoute>
+  
   );
 }

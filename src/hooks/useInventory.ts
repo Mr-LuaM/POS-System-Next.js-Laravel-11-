@@ -3,13 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
   getInventory, 
-  addProduct, 
-  updateProduct, 
-  manageStock, 
   archiveProduct, 
   restoreProduct, 
   deleteProduct, 
-  getLowStockProducts, 
   InventoryProduct 
 } from "@/services/inventory";
 import { toast } from "sonner";
@@ -23,116 +19,75 @@ export const useInventory = () => {
   const [isError, setIsError] = useState<boolean>(false);
   const [archivedFilter, setArchivedFilter] = useState<boolean | null>(null); // ✅ NULL = fetch all products
 
+  // ✅ Ensure values are retrieved safely
+  const storeId = sessionStorage.getItem("storeId") || null;
+  const role = sessionStorage.getItem("role") || "";
+
   /**
-   * ✅ Fetch Inventory from API (Supports Active, Archived & All Products)
+   * ✅ Fetch Inventory (Admins See All, Managers & Cashiers See Their Store)
    */
   const fetchInventory = useCallback(async () => {
     setLoading(true);
     setIsError(false);
     try {
-      const data = await getInventory(archivedFilter ?? false); // ✅ Pass filter dynamically
-      setInventory(data);
+      const data = await getInventory(archivedFilter ?? false);
+
+      // 🔹 Restrict inventory visibility for Managers & Cashiers
+      const filteredData = role === "admin" ? data : data.filter((item) => item.store_id === Number(storeId));
+
+      setInventory(filteredData);
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to fetch inventory."}`);
+      toast.error(`❌ Error: ${error.message || "Failed to fetch inventory."}`);
       setIsError(true);
     } finally {
       setLoading(false);
     }
-  }, [archivedFilter]);
+  }, [archivedFilter, role, storeId]);
 
+  // ✅ Fetch inventory on mount & filter change
   useEffect(() => {
     fetchInventory();
   }, [fetchInventory]);
 
   /**
-   * ✅ Add or Update Product (With Validation & Auto-Refresh)
-   */
-  const saveProduct = async (productData: Partial<InventoryProduct>, id?: number): Promise<boolean> => {
-    try {
-      if (id) {
-        await updateProduct(id, productData);
-        toast.success("Success: Product updated successfully.");
-      } else {
-        await addProduct(productData as InventoryProduct);
-        toast.success("Success: Product added successfully.");
-      }
-      fetchInventory();
-      return true;
-    } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to save product."}`);
-      return false;
-    }
-  };
-
-  /**
-   * ✅ Manage Stock for a Product (Restock, Sale, Damage, Return, Adjustment)
-   */
-  const updateStock = async (storeProductId: number, stockData: { type: string; quantity: number; reason?: string }): Promise<boolean> => {
-    try {
-      await manageStock(storeProductId, stockData);
-      toast.success(`Success: Stock ${stockData.type} successfully.`);
-      fetchInventory();
-      return true;
-    } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to update stock."}`);
-      return false;
-    }
-  };
-
-  /**
-   * ✅ Archive (Soft Delete) Product
+   * ✅ Archive Product (Admins Only)
    */
   const handleArchiveProduct = async (id: number) => {
+    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can archive products.");
     try {
       await archiveProduct(id);
-      toast.success("Success: Product archived successfully.");
+      toast.success("✅ Product archived successfully.");
       fetchInventory();
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to archive product."}`);
+      toast.error(`❌ Failed to archive product: ${error.message}`);
     }
   };
 
   /**
-   * ✅ Restore Product
+   * ✅ Restore Product (Admins Only)
    */
   const handleRestoreProduct = async (id: number) => {
+    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can restore products.");
     try {
       await restoreProduct(id);
-      toast.success("Success: Product restored successfully.");
+      toast.success("✅ Product restored successfully.");
       fetchInventory();
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to restore product."}`);
+      toast.error(`❌ Failed to restore product: ${error.message}`);
     }
   };
 
   /**
-   * ✅ Permanently Delete Product (Only if Archived)
+   * ✅ Permanently Delete Product (Admins Only)
    */
   const handleDeleteProduct = async (id: number) => {
+    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can delete products.");
     try {
       await deleteProduct(id);
-      toast.success("Success: Product permanently deleted.");
+      toast.success("✅ Product permanently deleted.");
       fetchInventory();
     } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to delete product."}`);
-    }
-  };
-
-  /**
-   * ✅ Fetch Low-Stock Products
-   */
-  const fetchLowStockProducts = async (storeId?: number) => {
-    setLoading(true);
-    setIsError(false);
-    try {
-      const data = await getLowStockProducts(storeId);
-      return data; // ✅ Returns low-stock products
-    } catch (error: any) {
-      toast.error(`Error: ${error.message || "Failed to fetch low-stock products."}`);
-      setIsError(true);
-      return [];
-    } finally {
-      setLoading(false);
+      toast.error(`❌ Failed to delete product: ${error.message}`);
     }
   };
 
@@ -140,14 +95,11 @@ export const useInventory = () => {
     inventory,
     loading,
     isError,
-    saveProduct,
-    updateStock,
     handleArchiveProduct,
     handleRestoreProduct,
     handleDeleteProduct,
-    fetchLowStockProducts,
     refreshInventory: fetchInventory,
-    archivedFilter, // ✅ Expose archived filter
-    setArchivedFilter, // ✅ Expose filter setter
+    archivedFilter,
+    setArchivedFilter,
   };
 };

@@ -1,44 +1,98 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+import { login as apiLogin, logout as apiLogout, fetchUser } from "@/services/auth";
 
 export function useAuth() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // ✅ Added loading state
 
-  useEffect(() => {
+  const checkAuth = useCallback(async () => {
     const token = sessionStorage.getItem("token");
 
     if (!token) {
+      setUser(null);
       setIsAuthenticated(false);
+      setLoading(false);
       return;
     }
 
-    console.log("🔄 Revalidating token with backend...");
-
-    // ✅ Check with Laravel if the token is valid
-    axios
-      .get(`${API_URL}/api/user`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((response) => {
-        console.log("✅ Token is valid:", response.data);
+    setLoading(true);
+    try {
+      const userData = await fetchUser();
+      if (userData) {
+        setUser(userData);
         setIsAuthenticated(true);
-        setUserRole(response.data.role);
-      })
-      .catch(() => {
-        console.log("❌ Token expired. Logging out...");
-        toast.error("Session expired. Please log in again.");
-        sessionStorage.clear();
-        router.push("/login");
-      });
-  }, [router]);
+      } else {
+        handleLogout();
+      }
+    } catch {
+      handleLogout();
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  return { isAuthenticated, userRole };
+  const login = async (email, password) => {
+    const result = await apiLogin(email, password);
+    if (result.success) {
+      sessionStorage.setItem("role", result.user.role);
+      sessionStorage.setItem("userId", result.user.id.toString());
+      sessionStorage.setItem("userName", result.user.name);
+
+      setUser(result.user);
+      setIsAuthenticated(true);
+
+      toast.success("✅ Login successful!", { description: "Redirecting...", duration: 3000 });
+
+      setTimeout(() => {
+        const storedRole = sessionStorage.getItem("role");
+        switch (storedRole) {
+          case "admin":
+            router.replace("/admin");
+            break;
+          case "cashier":
+            router.replace("/cashier");
+            break;
+          case "manager":
+            router.replace("/manager");
+            break;
+          default:
+            router.replace("/");
+        }
+      }, 1500);
+    } else {
+      toast.error("❌ Login failed!", { description: result.message });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      sessionStorage.clear();
+      setUser(null);
+      setIsAuthenticated(false);
+      toast.success("✅ Logged out successfully!");
+
+      if (pathname !== "/login") {
+        router.replace("/login");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (pathname !== "/login") {
+      checkAuth();
+    }
+  }, [checkAuth, pathname]);
+
+  return { isAuthenticated, user, login, logout: handleLogout, loading };
 }

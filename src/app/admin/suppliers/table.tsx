@@ -1,7 +1,7 @@
 "use client";
 
 import { useSuppliers } from "@/hooks/useSuppliers";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DataTable } from "@/components/common/data-table";
 import { getSupplierColumns } from "./columns";
 import SupplierModal from "./supplier-modal";
@@ -23,23 +23,19 @@ export default function SuppliersTable() {
     handleDeleteSupplier,
     archivedFilter,
     setArchivedFilter,
+    refreshSuppliers, // ✅ Ensure suppliers refresh after actions
   } = useSuppliers();
 
   const [supplierData, setSupplierData] = useState<{ id?: number; name: string; contact?: string; email?: string; address?: string } | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ id: number; type: "archive" | "restore" | "delete" } | null>(null);
-  const [confirmLoading, setConfirmLoading] = useState(false); // ✅ Added loading state for confirm actions
-
-  // ✅ Debugging ConfirmDialog State
-  useEffect(() => {
-    console.log("ConfirmDialog state updated:", confirmDialog);
-  }, [confirmDialog]);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   /**
    * ✅ Open Add Supplier Modal
    */
   const openAddModal = () => {
-    setSupplierData(null);
+    setSupplierData({ name: "", contact: "", email: "", address: "" });
     setModalOpen(true);
   };
 
@@ -55,27 +51,27 @@ export default function SuppliersTable() {
    * ✅ Open Confirm Dialog
    */
   const openConfirmDialog = (id: number, type: "archive" | "restore" | "delete") => {
-    console.log(`Opening confirm dialog for: ${type} (ID: ${id})`);
     setConfirmDialog({ id, type });
   };
 
   /**
-   * ✅ Handle Add or Update Supplier Submission
+   * ✅ Handle Add or Update Supplier
    */
   const handleSubmitSupplier = async (data: Partial<Supplier>) => {
     const success = await saveSupplier(data, supplierData?.id);
     if (success) {
       setModalOpen(false);
+      refreshSuppliers(); // ✅ Refresh suppliers list
     }
   };
 
   /**
-   * ✅ Handle Archive, Restore, or Delete Confirmation with Loading
+   * ✅ Handle Confirm Action (Archive, Restore, Delete)
    */
   const handleConfirmAction = async () => {
     if (!confirmDialog) return;
 
-    setConfirmLoading(true); // ✅ Start loading
+    setConfirmLoading(true);
     try {
       if (confirmDialog.type === "archive") {
         await handleArchiveSupplier(confirmDialog.id);
@@ -84,11 +80,12 @@ export default function SuppliersTable() {
       } else if (confirmDialog.type === "delete") {
         await handleDeleteSupplier(confirmDialog.id);
       }
+      refreshSuppliers(); // ✅ Always refresh after action
     } catch (error) {
       console.error("Error processing action:", error);
     } finally {
       setConfirmDialog(null);
-      setConfirmLoading(false); // ✅ Stop loading after completion
+      setConfirmLoading(false);
     }
   };
 
@@ -126,25 +123,27 @@ export default function SuppliersTable() {
           <DataTable
             columns={getSupplierColumns(openEditModal, openConfirmDialog)}
             data={suppliers}
-            searchKey="name"
+            searchKeys={["name", "contact", "email", "address"]} // ✅ Supports multiple search fields
           />
         </div>
       )}
 
       {/* ✅ Supplier Modal */}
-      <SupplierModal 
-        isOpen={isModalOpen} 
-        onClose={() => setModalOpen(false)} 
-        onSubmit={handleSubmitSupplier} 
-        supplierData={supplierData || undefined} 
-      />
+      {isModalOpen && (
+        <SupplierModal 
+          isOpen={isModalOpen} 
+          onClose={() => setModalOpen(false)} 
+          onSubmit={handleSubmitSupplier} 
+          supplierData={supplierData || undefined} 
+        />
+      )}
 
-      {/* ✅ Confirm Dialog with Loading */}
+      {/* ✅ Confirm Dialog */}
       {confirmDialog && (
         <ConfirmDialog
           key={confirmDialog.id}
           open={true}
-          onConfirm={handleConfirmAction} // ✅ Uses function with loading
+          onConfirm={handleConfirmAction}
           onCancel={() => setConfirmDialog(null)}
           title={
             confirmDialog.type === "archive"
@@ -175,7 +174,7 @@ export default function SuppliersTable() {
               ? "secondary"
               : "destructive"
           }
-          loading={confirmLoading} // ✅ Pass loading state to ConfirmDialog
+          loading={confirmLoading}
         />
       )}
     </div>

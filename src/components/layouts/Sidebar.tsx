@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/hooks/useAuth"; // ✅ Import your authentication hook
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -114,6 +115,8 @@ export default function Sidebar({
     setMenus(roleMenus[role] || roleMenus["admin"]); // ✅ Ensure menu updates when role changes
   }, [role]);
 
+  const { logout } = useAuth(); // ✅ Get logout function from the hook
+
   return (
     <TooltipProvider>
       <Card
@@ -171,17 +174,14 @@ export default function Sidebar({
 
         {/* Logout Button */}
         <div className="w-full">
-          <Button
-            variant="destructive"
-            className="w-full flex items-center gap-4 px-4 py-3 rounded-lg"
-            onClick={() => {
-              sessionStorage.clear();
-              window.location.href = "/login";
-            }}
-          >
-            <LogOut className="w-5 h-5" />
-            <span className={`transition-all duration-300 ${!isOpen && "hidden"}`}>Logout</span>
-          </Button>
+        <Button
+      variant="destructive"
+      className="w-full flex items-center gap-4 px-4 py-3 rounded-lg"
+      onClick={logout} // ✅ Calls your existing logout function
+    >
+      <LogOut className="w-5 h-5" />
+      <span className={`transition-all duration-300 ${!isOpen && "hidden"}`}>Logout</span>
+    </Button>
         </div>
       </Card>
     </TooltipProvider>

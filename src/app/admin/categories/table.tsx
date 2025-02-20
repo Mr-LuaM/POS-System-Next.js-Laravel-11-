@@ -7,58 +7,72 @@ import { getCategoryColumns } from "./columns";
 import CategoryModal from "./category-modal";
 import ConfirmDialog from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton"; // ✅ Added for loading state
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * ✅ Categories Table (Handles Full CRUD Operations Including Add)
+ * ✅ Categories Table (Handles Full CRUD Operations)
  */
 export default function CategoriesTable() {
-  const { categories, loading, handleAddCategory, handleUpdateCategory, handleDeleteCategory } = useCategories();
-  const [categoryName, setCategoryName] = useState("");
-  const [editingCategory, setEditingCategory] = useState<{ id: number; name: string } | null>(null);
+  const {
+    categories,
+    loading,
+    handleAddCategory,
+    handleUpdateCategory,
+    handleDeleteCategory,
+    refreshCategories,
+  } = useCategories();
+
+  const [categoryData, setCategoryData] = useState<{ id?: number; name: string } | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [deleteCategoryId, setDeleteCategoryId] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false); // ✅ Added loading state for delete action
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // ✅ Open Add Modal
+  /**
+   * ✅ Open Add Category Modal
+   */
   const openAddModal = () => {
-    setCategoryName("");
-    setEditingCategory(null);
+    setCategoryData({ name: "" });
     setModalOpen(true);
   };
 
-  // ✅ Open Edit Modal
+  /**
+   * ✅ Open Edit Category Modal
+   */
   const openEditModal = (category: { id: number; name: string }) => {
-    setEditingCategory(category);
-    setCategoryName(category.name);
+    setCategoryData(category);
     setModalOpen(true);
   };
 
-  // ✅ Handle Add or Update Category
+  /**
+   * ✅ Handle Add or Update Category
+   */
   const handleSubmitCategory = async () => {
-    if (!categoryName.trim()) return;
+    if (!categoryData?.name.trim()) return;
 
-    if (editingCategory) {
-      await handleUpdateCategory(editingCategory.id, categoryName);
-      setEditingCategory(null);
+    if (categoryData.id) {
+      await handleUpdateCategory(categoryData.id, categoryData.name);
     } else {
-      await handleAddCategory(categoryName);
+      await handleAddCategory(categoryData.name);
     }
     setModalOpen(false);
+    refreshCategories(); // ✅ Ensure updated list is fetched
   };
 
-  // ✅ Handle Delete Category with Loading
+  /**
+   * ✅ Handle Delete Category with Loading
+   */
   const handleConfirmDelete = async () => {
     if (deleteCategoryId === null) return;
-    setDeleteLoading(true); // ✅ Start loading
+    setDeleteLoading(true);
     await handleDeleteCategory(deleteCategoryId);
     setDeleteCategoryId(null);
-    setDeleteLoading(false); // ✅ Stop loading after completion
+    setDeleteLoading(false);
+    refreshCategories(); // ✅ Refresh data after deletion
   };
 
   return (
     <div className="w-full p-6 space-y-6">
-      {/* ✅ Header with Add Button */}
+      {/* ✅ Page Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">Categories</h1>
         <Button onClick={openAddModal} className="px-4 py-2">+ Add Category</Button>
@@ -73,32 +87,40 @@ export default function CategoriesTable() {
         </div>
       ) : (
         <div className="w-full max-w-none px-0">
-          <DataTable columns={getCategoryColumns(openEditModal, setDeleteCategoryId)} data={categories} searchKey="name" />
+          <DataTable
+            columns={getCategoryColumns(openEditModal, setDeleteCategoryId)}
+            data={categories}
+            searchKeys={["name"]} // ✅ Ensures search is applied correctly
+          />
         </div>
       )}
 
-      {/* ✅ Add/Edit Modal */}
-      <CategoryModal
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleSubmitCategory}
-        categoryName={categoryName}
-        setCategoryName={setCategoryName}
-        isEdit={!!editingCategory}
-      />
+      {/* ✅ Category Modal */}
+      {isModalOpen && (
+        <CategoryModal
+          isOpen={isModalOpen}
+          onClose={() => setModalOpen(false)}
+          onSubmit={handleSubmitCategory}
+          categoryName={categoryData?.name || ""}
+          setCategoryName={(name) => setCategoryData((prev) => ({ ...prev, name })!)}
+          isEdit={!!categoryData?.id}
+        />
+      )}
 
       {/* ✅ Delete Confirmation Modal with Loading */}
-      <ConfirmDialog
-        open={!!deleteCategoryId}
-        onConfirm={handleConfirmDelete} // ✅ Uses function with loading
-        onCancel={() => setDeleteCategoryId(null)}
-        title="Confirm Deletion"
-        description="Are you sure you want to delete this category?"
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        confirmVariant="destructive"
-        loading={deleteLoading} // ✅ Pass loading state to ConfirmDialog
-      />
+      {deleteCategoryId && (
+        <ConfirmDialog
+          open={!!deleteCategoryId}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteCategoryId(null)}
+          title="Confirm Deletion"
+          description="Are you sure you want to delete this category?"
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmVariant="destructive"
+          loading={deleteLoading}
+        />
+      )}
     </div>
   );
 }
