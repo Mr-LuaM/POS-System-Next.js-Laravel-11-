@@ -21,25 +21,11 @@ class InventoryController extends Controller
             $archived = $request->query('archived', 'all');
 
             $query = StoreProduct::with(['product.category', 'product.supplier', 'store'])
-                ->select(
-                    'id',
-                    'store_id',
-                    'product_id',
-                    'price',
-                    'stock_quantity',
-                    'low_stock_threshold',
-                    'deleted_at'
-                );
+                ->when($archived === 'true', fn($q) => $q->onlyTrashed())
+                ->when($archived === 'false', fn($q) => $q->whereNull('deleted_at'))
+                ->orderBy('id', 'desc');
 
-            if ($archived === 'true') {
-                $query->onlyTrashed();
-            } elseif ($archived === 'false') {
-                $query->whereNull('deleted_at');
-            } else {
-                $query->withTrashed();
-            }
-
-            return ResponseService::success('Store inventory fetched successfully', $query->orderBy('id', 'desc')->get());
+            return ResponseService::success('Store inventory fetched successfully', $query->get());
         } catch (\Exception $e) {
             return ResponseService::error('Failed to fetch inventory', $e->getMessage());
         }
@@ -57,7 +43,7 @@ class InventoryController extends Controller
             'qr_code' => 'nullable|string|max:255|unique:products,qr_code',
             'category_id' => 'nullable|exists:categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
-            'stores' => 'required|array', // ✅ Multiple stores
+            'stores' => 'required|array',
             'stores.*.store_id' => 'required|exists:stores,id',
             'stores.*.price' => 'required|numeric|min:0',
             'stores.*.stock_quantity' => 'required|integer|min:0',
@@ -88,7 +74,7 @@ class InventoryController extends Controller
     }
 
     /**
-     * ✅ Update a product (Stock Updates via manageStock)
+     * ✅ Update a product
      */
     public function updateProduct(Request $request, $id)
     {
@@ -115,17 +101,15 @@ class InventoryController extends Controller
 
             $product->update($request->only(['name', 'sku', 'barcode', 'qr_code', 'category_id', 'supplier_id']));
 
-            if (!empty($request->stores)) {
-                foreach ($request->stores as $store) {
-                    StoreProduct::updateOrCreate(
-                        ['product_id' => $product->id, 'store_id' => $store['store_id']],
-                        [
-                            'price' => $store['price'],
-                            'stock_quantity' => $store['stock_quantity'],
-                            'low_stock_threshold' => $store['low_stock_threshold'] ?? 0,
-                        ]
-                    );
-                }
+            foreach ($request->stores ?? [] as $store) {
+                StoreProduct::updateOrCreate(
+                    ['product_id' => $product->id, 'store_id' => $store['store_id']],
+                    [
+                        'price' => $store['price'],
+                        'stock_quantity' => $store['stock_quantity'],
+                        'low_stock_threshold' => $store['low_stock_threshold'] ?? 0,
+                    ]
+                );
             }
 
             return ResponseService::success('Product updated successfully', $product->load('stores'));
@@ -152,7 +136,8 @@ class InventoryController extends Controller
                 return ResponseService::validationError($validator->errors());
             }
 
-            if (in_array($request->type, ['sale', 'damage']) && $storeProduct->stock_quantity < $request->quantity) {
+            // Ensure stock never goes negative
+            if (in_array($request->type, ['sale', 'damage', 'adjustment']) && $storeProduct->stock_quantity < $request->quantity) {
                 return ResponseService::error('Insufficient stock', null, 400);
             }
 
@@ -183,59 +168,11 @@ class InventoryController extends Controller
             $storeProduct = StoreProduct::findOrFail($store_product_id);
             $storeProduct->delete();
 
-            // 🔹 Check if ALL stores for this product are archived → Archive `products`
-            $activeStores = StoreProduct::where('product_id', $storeProduct->product_id)
-                ->whereNull('deleted_at')
-                ->exists();
-
-            if (!$activeStores) {
+            if (!StoreProduct::where('product_id', $storeProduct->product_id)->whereNull('deleted_at')->exists()) {
                 Product::where('id', $storeProduct->product_id)->delete();
             }
 
             return ResponseService::success('Product archived successfully for this store');
-        } catch (ModelNotFoundException $e) {
-            return ResponseService::error('Product not found', null, 404);
-        }
-    }
-    /**
-     * ✅ Restore an archived product for a specific store
-     */
-    public function restoreProduct($store_product_id)
-    {
-        try {
-            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
-            $storeProduct->restore();
-
-            // 🔹 Restore `products` if at least one store is restored
-            Product::where('id', $storeProduct->product_id)->restore();
-
-            return ResponseService::success('Product restored successfully for this store');
-        } catch (ModelNotFoundException $e) {
-            return ResponseService::error('Product not found', null, 404);
-        }
-    }
-    /**
-     * ✅ Permanently delete a product (Only if already archived in all stores)
-     */
-    public function deleteProduct($store_product_id)
-    {
-        try {
-            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
-
-            if ($storeProduct->saleItems()->exists()) {
-                return ResponseService::error('Cannot delete product. It has sales history.', null, 400);
-            }
-
-            $storeProduct->forceDelete();
-
-            // 🔹 Check if ALL stores are deleted → Delete `products`
-            $remainingStores = StoreProduct::where('product_id', $storeProduct->product_id)->exists();
-
-            if (!$remainingStores) {
-                Product::where('id', $storeProduct->product_id)->forceDelete();
-            }
-
-            return ResponseService::success('Product permanently deleted for this store');
         } catch (ModelNotFoundException $e) {
             return ResponseService::error('Product not found', null, 404);
         }
@@ -261,6 +198,52 @@ class InventoryController extends Controller
             );
         } catch (\Exception $e) {
             return ResponseService::error('Failed to fetch low-stock products', $e->getMessage());
+        }
+    }
+
+    /**
+     * ✅ Restore an archived product for a specific store
+     */
+    public function restoreProduct($store_product_id)
+    {
+        try {
+            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
+            $storeProduct->restore();
+
+            // 🔹 Restore `products` if at least one store is restored
+            if (StoreProduct::where('product_id', $storeProduct->product_id)->whereNull('deleted_at')->exists()) {
+                Product::where('id', $storeProduct->product_id)->restore();
+            }
+
+            return ResponseService::success('Product restored successfully for this store');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('Product not found', null, 404);
+        }
+    }
+
+    /**
+     * ✅ Permanently delete a product (Only if already archived in all stores)
+     */
+    public function deleteProduct($store_product_id)
+    {
+        try {
+            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
+
+            // 🔹 Prevent deletion if product has sales history
+            if ($storeProduct->saleItems()->exists()) {
+                return ResponseService::error('Cannot delete product. It has sales history.', null, 400);
+            }
+
+            $storeProduct->forceDelete();
+
+            // 🔹 Delete `products` only if no stores remain
+            if (!StoreProduct::where('product_id', $storeProduct->product_id)->exists()) {
+                Product::where('id', $storeProduct->product_id)->forceDelete();
+            }
+
+            return ResponseService::success('Product permanently deleted for this store');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('Product not found', null, 404);
         }
     }
 }

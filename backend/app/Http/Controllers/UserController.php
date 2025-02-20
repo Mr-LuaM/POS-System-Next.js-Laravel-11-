@@ -44,7 +44,9 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:admin,cashier,manager'
+            'role' => 'required|in:admin,cashier,manager',
+            'store_id' => 'nullable|exists:stores,id', // ✅ Ensure store_id is valid
+
         ]);
 
         if ($validator->fails()) {
@@ -56,7 +58,8 @@ class UserController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => $request->role
+                'role' => $request->role,
+                'store_id' => $request->store_id, // ✅ Ensure store_id is valid if provided
             ]);
 
             return ResponseService::success('User created successfully', $user, 201);
