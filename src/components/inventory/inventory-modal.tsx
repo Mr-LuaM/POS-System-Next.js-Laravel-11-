@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategories } from "@/hooks/useCategories";
 import { useSuppliers } from "@/hooks/useSuppliers";
+import { useStores } from "@/hooks/useStores";
 
 /** ✅ Inventory Form Schema (Validation Using Zod) */
 const inventorySchema = z.object({
@@ -18,12 +19,23 @@ const inventorySchema = z.object({
   sku: z.string().optional(),
   barcode: z.string().optional(),
   qr_code: z.string().optional(),
-  price: z.preprocess((val) => parseFloat(val as string), z.number().positive("Price must be greater than zero.")),
-  stock_quantity: z.preprocess((val) => parseInt(val as string, 10), z.number().min(0, "Stock must be at least 0.")),
-  low_stock_threshold: z.preprocess((val) => parseInt(val as string, 10), z.number().min(0, "Low stock threshold must be at least 0.").optional()),
   category_id: z.string().min(1, "Please select a category."),
   supplier_id: z.string().min(1, "Please select a supplier."),
-  new_category: z.string().optional(),
+  new_category: z.string().optional(),  new_supplier: z.string().optional(),  // ✅ Fix: Add new_supplier field
+
+  stores: z
+    .array(
+      z.object({
+        store_id: z.string().min(1, "Please select a store."),
+        price: z.preprocess((val) => parseFloat(val as string), z.number().positive("Price must be greater than zero.")),
+        stock_quantity: z.preprocess((val) => parseInt(val as string, 10), z.number().min(0, "Stock must be at least 0.")),
+        low_stock_threshold: z.preprocess(
+          (val) => (val ? parseInt(val as string, 10) : undefined),
+          z.number().min(0, "Low stock threshold must be at least 0.").optional()
+        ),
+      })
+    )
+    .optional(),
 });
 
 /** ✅ Type Definition for Inventory Data */
@@ -39,63 +51,86 @@ interface InventoryModalProps {
 export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryData }: InventoryModalProps) {
   const [loading, setLoading] = useState(false);
   const [customCategory, setCustomCategory] = useState(false);
+  const [customSupplier, setCustomSupplier] = useState(false);
 
   const { categories } = useCategories();
   const { suppliers } = useSuppliers();
+  const { stores } = useStores();
 
+
+
+  /** ✅ Initialize Form with Dynamic Default Values */
   const form = useForm<InventorySchemaType>({
     resolver: zodResolver(inventorySchema),
     mode: "onChange",
-    defaultValues: {
+    defaultValues: inventoryData || {
       name: "",
       sku: "",
       barcode: "",
       qr_code: "",
-      price: "",
-      stock_quantity: "",
-      low_stock_threshold: "",
       category_id: "",
       supplier_id: "",
       new_category: "",
+      stores: [],
     },
   });
 
-  /** ✅ Update form when editing */
-  useEffect(() => {
+ /** ✅ Ensure Form Resets Properly When Editing */
+/** ✅ Ensure Form Resets Properly When Editing */
+useEffect(() => {
     if (inventoryData) {
-      console.log("Editing Inventory Data:", inventoryData); // Debugging log
-  
-      // Find category ID based on category name
-      const selectedCategory = categories.find((cat) => cat.name === inventoryData.categoryName);
-      const categoryId = selectedCategory ? selectedCategory.id.toString() : "";
-  
-      // Find supplier ID based on supplier name
-      const selectedSupplier = suppliers.find((sup) => sup.name === inventoryData.supplier?.name);
-      const supplierId = selectedSupplier ? selectedSupplier.id.toString() : "";
+      const matchedCategory = categories.find(cat => cat.id.toString() === inventoryData.category_id);
+      const matchedSupplier = suppliers.find(sup => sup.id.toString() === inventoryData.supplier_id);
   
       form.reset({
         name: inventoryData.productName || "",
         sku: inventoryData.productSKU || "",
         barcode: inventoryData.barcode || "",
         qr_code: inventoryData.qr_code || "",
-        price: inventoryData.price?.toString() || "",
-        stock_quantity: inventoryData.stock?.toString() || "",
-        low_stock_threshold: inventoryData.low_stock_threshold?.toString() || "",
-        category_id: categoryId,
-        supplier_id: supplierId,
-        new_category: "",
+        category_id: matchedCategory ? matchedCategory.id.toString() : "other",
+        new_category: matchedCategory ? "" : inventoryData.categoryName || "",
+        supplier_id: matchedSupplier ? matchedSupplier.id.toString() : "other",
+        new_supplier: matchedSupplier ? "" : inventoryData.supplierName || "",
+        stores: inventoryData.store
+          ? [{
+              store_id: inventoryData.store.id.toString(),
+              price: inventoryData.price.toString(),
+              stock_quantity: inventoryData.stock.toString(),
+              low_stock_threshold: inventoryData.low_stock_threshold?.toString() || "0",
+            }]
+          : [],
       });
   
-      // Ensure "Other" category selection is properly set
-      setCustomCategory(categoryId === "other");
+      setCustomCategory(!matchedCategory); // ✅ Only set "Other" if no match found
+      setCustomSupplier(!matchedSupplier); // ✅ Only set "Other" if no match found
+    } else {
+      form.reset({
+        name: "",
+        sku: "",
+        barcode: "",
+        qr_code: "",
+        category_id: "",
+        new_category: "",
+        supplier_id: "",
+        new_supplier: "",
+        stores: [],
+      });
+  
+      setCustomCategory(false);
+      setCustomSupplier(false);
     }
   }, [inventoryData, categories, suppliers, form]);
   
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "stores",
+  });
 
+  /** ✅ Handle Form Submission */
   const handleSubmit = async (data: InventorySchemaType) => {
     setLoading(true);
     if (customCategory) {
-      data.category_id = "new"; // Indicate new category
+      data.category_id = "new";
       data.new_category = form.getValues("new_category");
     }
     const success = await onSubmit(data);
@@ -109,6 +144,8 @@ export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryDat
         <DialogHeader>
           <DialogTitle>{inventoryData ? "Edit Inventory" : "Add Product"}</DialogTitle>
         </DialogHeader>
+        <div className="overflow-y-auto max-h-[75vh] p-2">
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             {/* ✅ Product Name */}
@@ -143,26 +180,16 @@ export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryDat
                 <FormControl><Input placeholder="QR Code" {...field} /></FormControl>
               </FormItem>
             )} />
-
-            {/* ✅ Price */}
-            <FormField control={form.control} name="price" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price</FormLabel>
-                <FormControl><Input type="number" step="0.01" placeholder="Price" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            {/* ✅ Category Dropdown with "Other" Option */}
-            <FormField control={form.control} name="category_id" render={({ field }) => (
+    {/* ✅ Category Selection */}
+<FormField control={form.control} name="category_id" render={({ field }) => (
   <FormItem>
     <FormLabel>Category</FormLabel>
-    <Select
-      onValueChange={(val) => {
-        field.onChange(val);
-        setCustomCategory(val === "other");
-      }}
-      value={field.value || ""}
+    <Select 
+      onValueChange={(val) => { 
+        field.onChange(val); 
+        setCustomCategory(val === "other"); 
+      }} 
+      value={field.value ?? ""}
     >
       <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
       <SelectContent>
@@ -176,42 +203,92 @@ export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryDat
   </FormItem>
 )} />
 
+{/* ✅ Show New Category Input When "Other" is Selected */}
+{customCategory && (
+  <FormField control={form.control} name="new_category" render={({ field }) => (
+    <FormItem>
+      <FormLabel>New Category</FormLabel>
+      <FormControl><Input placeholder="Enter new category" {...field} /></FormControl>
+      <FormMessage />
+    </FormItem>
+  )} />
+)}
 
-            {customCategory && (
-              <FormField control={form.control} name="new_category" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>New Category</FormLabel>
-                  <FormControl><Input placeholder="Enter new category name" {...field} /></FormControl>
-                </FormItem>
-              )} />
-            )}
-
-            {/* ✅ Supplier */}
-            <FormField control={form.control} name="supplier_id" render={({ field }) => (
+{/* ✅ Supplier Selection */}
+<FormField control={form.control} name="supplier_id" render={({ field }) => (
   <FormItem>
     <FormLabel>Supplier</FormLabel>
-    <Select
-      onValueChange={field.onChange}
-      value={field.value || ""}
+    <Select 
+      onValueChange={(val) => { 
+        field.onChange(val); 
+        setCustomSupplier(val === "other"); 
+      }} 
+      value={field.value ?? ""}
     >
       <SelectTrigger><SelectValue placeholder="Select Supplier" /></SelectTrigger>
       <SelectContent>
         {suppliers.map((sup) => (
           <SelectItem key={sup.id} value={sup.id.toString()}>{sup.name}</SelectItem>
         ))}
+        <SelectItem value="other">Other (Enter New Supplier)</SelectItem>
       </SelectContent>
     </Select>
     <FormMessage />
   </FormItem>
 )} />
 
+{/* ✅ Show New Supplier Input When "Other" is Selected */}
+{customSupplier && (
+  <FormField control={form.control} name="new_supplier" render={({ field }) => (
+    <FormItem>
+      <FormLabel>New Supplier</FormLabel>
+      <FormControl><Input placeholder="Enter new supplier" {...field} /></FormControl>
+      <FormMessage />
+    </FormItem>
+  )} />
+)}
 
+
+            {/* ✅ Store-Level Pricing & Stock Management */}
+            {!inventoryData && (  <div className="space-y-4">
+              <Button type="button" onClick={() => append({ store_id: "", price: "", stock_quantity: "", low_stock_threshold: "" })}>➕ Add Store</Button>
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex flex-col gap-2 p-3 border rounded-lg">
+                  <FormField control={form.control} name={`stores.${index}.store_id`} render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <SelectTrigger><SelectValue placeholder="Select Store" /></SelectTrigger>
+                      <SelectContent>
+                        {stores.map((store) => (
+                          <SelectItem key={store.id} value={store.id.toString()}>{store.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )} />
+
+                  <FormField control={form.control} name={`stores.${index}.price`} render={({ field }) => (
+                    <Input type="number" step="0.01" placeholder="Price" className="text-lg" {...field} />
+                  )} />
+
+                  <FormField control={form.control} name={`stores.${index}.stock_quantity`} render={({ field }) => (
+                    <Input type="number" placeholder="Stock Quantity" className="text-lg" {...field} />
+                  )} />
+
+                  <FormField control={form.control} name={`stores.${index}.low_stock_threshold`} render={({ field }) => (
+                    <Input type="number" placeholder="Low Stock Threshold" className="text-lg" {...field} />
+                  )} />
+
+                  <Button type="button" variant="destructive" onClick={() => remove(index)}>🗑 Remove</Button>
+                </div>
+              ))}
+            </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
               <Button type="submit" disabled={loading}>{loading ? "Saving..." : inventoryData ? "Update" : "Save"}</Button>
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

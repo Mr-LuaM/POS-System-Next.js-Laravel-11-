@@ -1,6 +1,9 @@
 "use client";
 
 import { useInventory } from "@/hooks/useInventory";
+import { useCategories } from "@/hooks/useCategories";
+import { useSuppliers } from "@/hooks/useSuppliers";
+import { useStores } from "@/hooks/useStores";
 import { useState } from "react";
 import { DataTable } from "@/components/common/data-table";
 import { getInventoryColumns } from "./columns";
@@ -22,7 +25,13 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     handleRestoreProduct,
     archivedFilter,
     setArchivedFilter,
+    addInventory,
+    editInventory,
   } = useInventory();
+
+  const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
+  const { stores } = useStores();
 
   const [confirmDialog, setConfirmDialog] = useState<{ id: number; type: "archive" | "restore" } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -39,16 +48,16 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     productName: item.product?.name ?? "Unnamed Product",
     productSKU: item.product?.sku ?? "N/A",
     categoryName: item.product?.category?.name ?? "N/A",
-    supplier: item.product?.supplier ?? null, // ✅ Ensure supplier object is included
-    supplierName: item.product?.supplier?.name ?? "N/A", // ✅ Fix supplier mapping
-    store: item.store ?? null, // ✅ Ensure store object is included
+    supplier: item.product?.supplier ?? null,
+    supplierName: item.product?.supplier?.name ?? "N/A",
+    store: item.store ?? null,
     storeName: item.store?.name ?? "N/A",
-    storeLocation: item.store?.location ?? "N/A", // ✅ Ensure store location is mapped correctly
+    storeLocation: item.store?.location ?? "N/A",
     price: item.price ?? 0,
     stock: item.stock_quantity ?? 0,
     low_stock_threshold: item.low_stock_threshold ?? 0,
-    barcode: item.product?.barcode ?? null, // ✅ Ensure barcode is included
-    qr_code: item.product?.qr_code ?? null, // ✅ Ensure QR code is included
+    barcode: item.product?.barcode ?? null,
+    qr_code: item.product?.qr_code ?? null,
     created_at: item.created_at ?? "N/A",
     updated_at: item.updated_at ?? "N/A",
     deleted_at: item.deleted_at ?? null, // ✅ Store-level archive
@@ -69,13 +78,28 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   /**
    * ✅ Open Edit Inventory Modal
    */
-  const handleEditProduct = (productId: number) => {
-    const product = formattedInventory.find((p) => p.id === productId);
-    if (product) {
-      setEditProduct(product);
-      setInventoryModalOpen(true);
-    }
-  };
+  /**
+ * ✅ Open Edit Inventory Modal (Fix Category & Supplier Matching)
+ */
+const handleEditProduct = (productId: number) => {
+  const product = formattedInventory.find((p) => p.id === productId);
+  if (product) {
+    // Match category and supplier by ID
+    const matchedCategory = categories.find(cat => cat.name === product.categoryName);
+    const matchedSupplier = suppliers.find(sup => sup.name === product.supplierName);
+
+    setEditProduct({
+      ...product,
+      category_id: matchedCategory ? matchedCategory.id.toString() : "other", // ✅ Ensure correct ID
+      supplier_id: matchedSupplier ? matchedSupplier.id.toString() : "other", // ✅ Ensure correct ID
+      new_category: matchedCategory ? "" : product.categoryName, // ✅ Only set if it's a new category
+      new_supplier: matchedSupplier ? "" : product.supplierName, // ✅ Only set if it's a new supplier
+    });
+
+    setInventoryModalOpen(true);
+  }
+};
+
 
   /**
    * ✅ Open Confirm Dialog (Archive/Restore)
@@ -103,6 +127,24 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
       setConfirmDialog(null);
       setConfirmLoading(false);
     }
+  };
+
+  /**
+   * ✅ Handle Add/Edit Submission
+   */
+  const handleInventorySubmit = async (data: any) => {
+    let success = false;
+    if (editProduct) {
+      success = await editInventory(editProduct.id, data);
+    } else {
+      success = await addInventory(data);
+    }
+
+    if (success) {
+      setInventoryModalOpen(false);
+      setEditProduct(null); // ✅ Reset edit state
+    }
+    return success;
   };
 
   return (
@@ -138,11 +180,11 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
         <div className="w-full max-w-none px-0">
           <DataTable
             columns={getInventoryColumns(role, handleEditProduct, handleViewDetails, openConfirmDialog)}
-            data={formattedInventory} // ✅ Use the fixed inventory data
-            searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]} // ✅ Search across multiple columns
-            defaultPageSize={5} // ✅ Default pagination size
-            pagination // ✅ Enable pagination
-            sorting // ✅ Enable sorting
+            data={formattedInventory}
+            searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}
+            defaultPageSize={5}
+            pagination
+            sorting
           />
         </div>
       )}
@@ -156,22 +198,19 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
         />
       )}
 
-      {/* ✅ Inventory Edit/Add Modal */}
+      {/* ✅ Inventory Add/Edit Modal */}
       {isInventoryModalOpen && (
         <InventoryModal
           isOpen={isInventoryModalOpen}
           onClose={() => {
             setInventoryModalOpen(false);
-            setEditProduct(null); // ✅ Reset edit state
+            setEditProduct(null);
           }}
-          onSubmit={async (data) => {
-            console.log("Saving Inventory:", data);
-            return true; // ✅ Replace with actual API call
-          }}
+          onSubmit={handleInventorySubmit} // ✅ Ensures API call is properly handled
           inventoryData={editProduct}
-          categories={[]} // ✅ Replace with fetched categories
-          suppliers={[]} // ✅ Replace with fetched suppliers
-          stores={[]} // ✅ Replace with fetched stores
+          categories={categories} // ✅ Pass fetched categories
+          suppliers={suppliers} // ✅ Pass fetched suppliers
+          stores={stores} // ✅ Pass fetched stores
         />
       )}
 
