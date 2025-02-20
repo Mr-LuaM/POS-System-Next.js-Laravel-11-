@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Store extends Model
@@ -36,5 +38,15 @@ class Store extends Model
     public function employeeShifts()
     {
         return $this->hasMany(EmployeeShift::class);
+    }
+
+    /**
+     * ✅ Define Many-to-Many Relationship with Stores (store_products pivot table)
+     */
+    public function stores(): BelongsToMany
+    {
+        return $this->belongsToMany(Store::class, 'store_products')
+            ->withPivot(['price', 'stock_quantity', 'low_stock_threshold'])
+            ->withTimestamps();
     }
 }

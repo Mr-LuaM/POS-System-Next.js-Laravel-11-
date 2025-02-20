@@ -61,9 +61,11 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'store_id' => $user->store_id, // ✅ Include `store_id` for managers/cashiers
             ],
         ], 200);
     }
+
 
     public function logout(Request $request)
     {

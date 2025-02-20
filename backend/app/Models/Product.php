@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Product extends Model
 {
@@ -20,16 +21,26 @@ class Product extends Model
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
-    public function store()
+
+    /**
+     * ✅ Define Many-to-Many Relationship with Stores (store_products pivot table)
+     */
+    public function stores(): BelongsToMany
     {
-        return $this->belongsTo(Store::class);
+        return $this->belongsToMany(Store::class, 'store_products')
+            ->withPivot(['price', 'stock_quantity', 'low_stock_threshold'])
+            ->withTimestamps();
     }
 
     public function stockMovements()
     {
         return $this->hasMany(StockMovement::class);
+    }
+    public function storeProducts()
+    {
+        return $this->hasMany(StoreProduct::class, 'product_id', 'id');
     }
 }

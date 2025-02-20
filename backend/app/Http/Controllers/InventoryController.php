@@ -6,43 +6,93 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\StoreProduct;
 use App\Models\StockMovement;
+use App\Models\Category;
+use App\Models\Supplier;
 use App\Services\ResponseService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
     /**
-     * ✅ Get all store-specific inventory (Active & Archived)
+     * ✅ Get inventory (Admins see all, Cashiers & Managers see only their store)
      */
     public function getAll(Request $request)
     {
         try {
             $archived = $request->query('archived', 'all');
+            $storeId = $request->query('store_id');
+            $user = Auth::user();
 
-            $query = StoreProduct::with(['product.category', 'product.supplier', 'store'])
-                ->when($archived === 'true', fn($q) => $q->onlyTrashed())
-                ->when($archived === 'false', fn($q) => $q->whereNull('deleted_at'))
-                ->orderBy('id', 'desc');
+            // 🔹 Base Query: Fetch inventory with related product details
+            $query = StoreProduct::with([
+                'product' => fn($query) => $query->withTrashed(), // ✅ Always include soft-deleted products
+                'product.category',
+                'product.supplier' => fn($query) => $query->withTrashed(), // ✅ Ensure soft-deleted suppliers are included
+                'store'
+            ]);
 
-            return ResponseService::success('Store inventory fetched successfully', $query->get());
+            // 🔹 Filter Archived Items
+            if ($archived === 'true') {
+                // ✅ Fetch only archived (soft-deleted) items
+                $query->onlyTrashed()->orWhereHas('product', fn($p) => $p->onlyTrashed());
+            } elseif ($archived === 'false') {
+                // ✅ Fetch only active (non-deleted) items
+                $query->whereNull('store_products.deleted_at')
+                    ->whereHas('product', fn($p) => $p->whereNull('deleted_at'));
+            } else {
+                // ✅ Fetch both active & archived items (default behavior)
+                $query->withTrashed();
+            }
+
+            // 🔹 Apply Additional Filters
+            if ($user->role !== 'admin') {
+                $query->where('store_id', $user->store_id); // 🔹 Restrict non-admin users
+            }
+
+            if (!empty($storeId)) {
+                $query->where('store_id', $storeId); // ✅ Filter by store if provided
+            }
+
+            $query->orderByDesc('id'); // ✅ More readable orderBy
+
+            // 🔍 Fetch Results & Debug Query
+            $inventory = $query->get();
+            Log::info($query->toSql(), $query->getBindings());
+
+            // ✅ Return Response
+            return $inventory->isEmpty()
+                ? ResponseService::success('No inventory found', [])
+                : ResponseService::success('Inventory fetched successfully', $inventory);
         } catch (\Exception $e) {
             return ResponseService::error('Failed to fetch inventory', $e->getMessage());
         }
     }
 
+
+
+
     /**
-     * ✅ Add a new product to a store
+     * ✅ Add a new product (Admin Only)
      */
     public function addProduct(Request $request)
     {
+        if (Auth::user()->role !== 'admin') {
+            return ResponseService::error('Unauthorized access', null, 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:products,name',
             'sku' => 'required|string|max:255|unique:products,sku',
             'barcode' => 'nullable|string|max:255|unique:products,barcode',
             'qr_code' => 'nullable|string|max:255|unique:products,qr_code',
             'category_id' => 'nullable|exists:categories,id',
+            'new_category' => 'nullable|string|max:255',
             'supplier_id' => 'nullable|exists:suppliers,id',
+            'new_supplier' => 'nullable|string|max:255',
             'stores' => 'required|array',
             'stores.*.store_id' => 'required|exists:stores,id',
             'stores.*.price' => 'required|numeric|min:0',
@@ -55,6 +105,18 @@ class InventoryController extends Controller
         }
 
         try {
+            // 🔹 Handle "Other" Category
+            if ($request->category_id === 'other' && !empty($request->new_category)) {
+                $category = Category::create(['name' => $request->new_category]);
+                $request->merge(['category_id' => $category->id]);
+            }
+
+            // 🔹 Handle "Other" Supplier
+            if ($request->supplier_id === 'other' && !empty($request->new_supplier)) {
+                $supplier = Supplier::create(['name' => $request->new_supplier]);
+                $request->merge(['supplier_id' => $supplier->id]);
+            }
+
             $product = Product::create($request->only(['name', 'sku', 'barcode', 'qr_code', 'category_id', 'supplier_id']));
 
             foreach ($request->stores as $store) {
@@ -74,20 +136,29 @@ class InventoryController extends Controller
     }
 
     /**
-     * ✅ Update a product
+     * ✅ Update a product (Admin Only)
      */
-    public function updateProduct(Request $request, $id)
+    public function updateProduct(Request $request, $store_product_id)
     {
-        try {
-            $product = Product::findOrFail($id);
+        if (Auth::user()->role !== 'admin') {
+            return ResponseService::error('Unauthorized access', null, 403);
+        }
 
+        try {
+            // 🔹 Get the store product record first
+            $storeProduct = StoreProduct::findOrFail($store_product_id);
+            $product = Product::findOrFail($storeProduct->product_id);
+
+            // 🔹 Validate Input
             $validator = Validator::make($request->all(), [
-                'name' => "required|string|max:255|unique:products,name,{$id}",
-                'sku' => "required|string|max:255|unique:products,sku,{$id}",
-                'barcode' => "nullable|string|max:255|unique:products,barcode,{$id}",
-                'qr_code' => "nullable|string|max:255|unique:products,qr_code,{$id}",
+                'name' => "required|string|max:255|unique:products,name,{$product->id}",
+                'sku' => "required|string|max:255|unique:products,sku,{$product->id}",
+                'barcode' => "nullable|string|max:255|unique:products,barcode,{$product->id}",
+                'qr_code' => "nullable|string|max:255|unique:products,qr_code,{$product->id}",
                 'category_id' => 'nullable|exists:categories,id',
+                'new_category' => 'nullable|string|max:255',
                 'supplier_id' => 'nullable|exists:suppliers,id',
+                'new_supplier' => 'nullable|string|max:255',
                 'stores' => 'sometimes|array',
                 'stores.*.store_id' => 'required|exists:stores,id',
                 'stores.*.price' => 'required|numeric|min:0',
@@ -99,8 +170,22 @@ class InventoryController extends Controller
                 return ResponseService::validationError($validator->errors());
             }
 
+            // 🔹 Handle "Other" Category (Create new category and assign ID)
+            if ($request->filled('new_category')) {
+                $category = Category::create(['name' => $request->new_category]);
+                $request->merge(['category_id' => $category->id]); // ✅ Ensure ID is assigned
+            }
+
+            // 🔹 Handle "Other" Supplier (Create new supplier and assign ID)
+            if ($request->filled('new_supplier')) {
+                $supplier = Supplier::create(['name' => $request->new_supplier]);
+                $request->merge(['supplier_id' => $supplier->id]); // ✅ Ensure ID is assigned
+            }
+
+            // 🔹 Update Product Details
             $product->update($request->only(['name', 'sku', 'barcode', 'qr_code', 'category_id', 'supplier_id']));
 
+            // 🔹 Update Store-Level Data
             foreach ($request->stores ?? [] as $store) {
                 StoreProduct::updateOrCreate(
                     ['product_id' => $product->id, 'store_id' => $store['store_id']],
@@ -112,19 +197,32 @@ class InventoryController extends Controller
                 );
             }
 
-            return ResponseService::success('Product updated successfully', $product->load('stores'));
+            // ✅ Load store_products instead of stores (Fix the error)
+            $updatedProduct = Product::with([
+                'category',
+                'supplier',
+                'storeProducts.store' // ✅ Correct way to get stores linked to the product
+            ])->find($product->id);
+
+            return ResponseService::success('Product updated successfully', $updatedProduct);
         } catch (ModelNotFoundException $e) {
             return ResponseService::error('Product not found', null, 404);
         }
     }
 
+
     /**
-     * ✅ Manage stock for a specific store's product
+     * ✅ Cashiers & Managers can only adjust stock for their store
      */
     public function manageStock(Request $request, $store_product_id)
     {
-        return \DB::transaction(function () use ($request, $store_product_id) {
+        return DB::transaction(function () use ($request, $store_product_id) {
             $storeProduct = StoreProduct::lockForUpdate()->findOrFail($store_product_id);
+            $user = Auth::user();
+
+            if ($user->role !== 'admin' && $storeProduct->store_id !== $user->store_id) {
+                return ResponseService::error('Unauthorized access', null, 403);
+            }
 
             $validator = Validator::make($request->all(), [
                 'type' => 'required|in:restock,sale,adjustment,damage,return',

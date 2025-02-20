@@ -11,10 +11,11 @@ class StoreProduct extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = ['store_id', 'product_id', 'price', 'stock_quantity', 'low_stock_threshold'];
+    protected $dates = ['deleted_at']; // ✅ Ensure deleted_at is treated as a date
 
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed(); // ✅ Ensure soft-deleted products are included
     }
 
     public function store()
