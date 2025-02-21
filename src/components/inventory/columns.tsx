@@ -3,14 +3,22 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Archive, Pencil, Info, RotateCcw } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreVertical, Archive, Pencil, Info, RotateCcw, Warehouse, Settings } from "lucide-react";
 
+/**
+ * ✅ Inventory Table Columns (Supports General, Admin, & Store-Level Management)
+ */
 export function getInventoryColumns(
   role: "admin" | "manager",
   onEdit: (id: number) => void,
   onViewDetails: (id: number) => void,
-  onArchiveRestore: (id: number, type: "archive" | "restore") => void
+  onGlobalArchive: (id: number, type: "archive" | "restore") => void,
+  onStoreArchive: (id: number, type: "archive" | "restore") => void,
+  onManageStock: (id: number, storeId: number) => void, // ✅ Store-Level Stock
+  onManageStoreDetails: (id: number, storeId: number) => void, // ✅ Store-Level Pricing
+  onHardDelete: (id: number) => void,
+
 ): ColumnDef<any>[] {
   return [
     {
@@ -63,13 +71,7 @@ export function getInventoryColumns(
 
         return (
           <Badge
-            variant={
-              isGloballyArchived
-                ? "destructive"
-                : isStoreArchived
-                ? "warning"
-                : "default"
-            }
+            variant={isGloballyArchived ? "destructive" : isStoreArchived ? "warning" : "default"}
           >
             {isGloballyArchived
               ? "Globally Archived"
@@ -84,54 +86,101 @@ export function getInventoryColumns(
       id: "actions",
       header: "Actions",
       cell: ({ row }) => {
-        const isArchived = row.original.deleted_at !== null;
-
+        const isGloballyArchived = row.original?.product_deleted_at !== null;
+        const isStoreArchived = row.original?.deleted_at !== null;
+    
         return (
-          <div className="flex gap-2">
-            {/* View Details */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={() => onViewDetails(row.original.id)}>
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>View Details</TooltipContent>
-            </Tooltip>
-
-            {/* Edit (Only for Admins) */}
-            {role === "admin" && !isArchived && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="outline" onClick={() => onEdit(row.original.id)}>
-                    <Pencil className="w-4 h-4 text-blue-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Edit Product</TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* Archive/Restore (Only for Admins) */}
-            {role === "admin" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => onArchiveRestore(row.original.id, isArchived ? "restore" : "archive")}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* ✅ View Details */}
+              <DropdownMenuItem onClick={() => onViewDetails(row.original.id)}>
+                <Info className="w-4 h-4 mr-2" />
+                View Details
+              </DropdownMenuItem>
+    
+              {/* ❌ Disable store-level actions if globally archived */}
+              {!isGloballyArchived && (
+                <>
+                  {/* ✅ Store-Level: Manage Stock (Admin & Manager) */}
+                  <DropdownMenuItem onClick={() => onManageStock(row.original.id, row.original.storeId)}>
+                    <Warehouse className="w-4 h-4 mr-2" />
+                    Manage Stock
+                  </DropdownMenuItem>
+    
+                  {/* ✅ Store-Level: Manage Price & Threshold (Admin Only) */}
+                  {role === "admin" && (
+                    <DropdownMenuItem onClick={() => onManageStoreDetails(row.original.id, row.original.storeId)}>
+                      <Settings className="w-4 h-4 mr-2 text-yellow-600" />
+                      Manage Store-Level Details
+                    </DropdownMenuItem>
+                  )}
+    
+                  {/* ✅ Edit Product (Admin Only) */}
+                  {role === "admin" && (
+                    <DropdownMenuItem onClick={() => onEdit(row.original.id)}>
+                      <Pencil className="w-4 h-4 mr-2 text-blue-600" />
+                      Edit Product
+                    </DropdownMenuItem>
+                  )}
+    
+                  {/* ✅ Store-Level Archive/Restore (Admin & Manager) */}
+                  <DropdownMenuItem
+                    onClick={() => onStoreArchive(row.original.id, isStoreArchived ? "restore" : "archive")}
                   >
-                    {isArchived ? (
-                      <RotateCcw className="w-4 h-4 text-green-600" />
+                    {isStoreArchived ? (
+                      <>
+                        <RotateCcw className="w-4 h-4 mr-2 text-green-600" />
+                        Restore in Store
+                      </>
                     ) : (
-                      <Archive className="w-4 h-4 text-red-600" />
+                      <>
+                        <Archive className="w-4 h-4 mr-2 text-red-600" />
+                        Archive in Store
+                      </>
                     )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isArchived ? "Restore Product" : "Archive Product"}</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
+                  </DropdownMenuItem>
+                </>
+              )}
+    
+              {/* ✅ Global Archive/Restore (Admin Only) */}
+              {role === "admin" && (
+                <DropdownMenuItem
+                  onClick={() => onGlobalArchive(row.original.id, isGloballyArchived ? "restore" : "archive")}
+                >
+                  {isGloballyArchived ? (
+                    <>
+                      <RotateCcw className="w-4 h-4 mr-2 text-green-600" />
+                      Restore Globally
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-4 h-4 mr-2 text-red-600" />
+                      Archive Globally
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
+    
+              {/* ✅ Hard Delete (Only When Globally Archived) */}
+              {role === "admin" && isGloballyArchived && (
+                <DropdownMenuItem
+                  onClick={() => onHardDelete(row.original.id)}
+                  className="text-red-600"
+                >
+                  <Archive className="w-4 h-4 mr-2 text-red-600" />
+                  Delete Permanently
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
     },
+    
   ];
 }

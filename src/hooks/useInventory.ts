@@ -6,6 +6,8 @@ import {
   archiveProduct, 
   restoreProduct, 
   deleteProduct, 
+  archiveStoreProduct,  // ✅ Store-level Archive
+  restoreStoreProduct,  // ✅ Store-level Restore
   addInventoryItem, 
   updateInventoryItem, 
   InventoryProduct 
@@ -13,7 +15,17 @@ import {
 import { toast } from "sonner";
 
 /**
- * ✅ Custom Hook for Managing Inventory (Supports CRUD, Active & Archived Products)
+ * ✅ Helper Function: Retrieve Session Storage Value
+ */
+const getSessionValue = (key: string): string | null => {
+  if (typeof window !== "undefined") {
+    return sessionStorage.getItem(key);
+  }
+  return null;
+};
+
+/**
+ * ✅ Custom Hook for Managing Inventory (CRUD, Active & Archived Products)
  */
 export const useInventory = () => {
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
@@ -21,12 +33,11 @@ export const useInventory = () => {
   const [isError, setIsError] = useState<boolean>(false);
   const [archivedFilter, setArchivedFilter] = useState<boolean | null>(null); // ✅ NULL = fetch all products
 
-  const getSessionValue = (key: string) => (typeof window !== "undefined" ? sessionStorage.getItem(key) : null);
   const storeId = getSessionValue("storeId");
   const role = getSessionValue("role");
 
   /**
-   * ✅ Fetch Inventory (Admins See All, Managers & Cashiers See Their Store)
+   * ✅ Fetch Inventory (Admins See All, Managers See Their Store Only)
    */
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -35,6 +46,7 @@ export const useInventory = () => {
       const filter = archivedFilter === null ? "null" : archivedFilter.toString();
       const data = await getInventory(filter);
 
+      // ✅ Format data before setting state
       const processedInventory = data.map((item: InventoryProduct) => ({
         ...item,
         category_id: item.product?.category?.id ? item.product.category.id.toString() : "other",
@@ -43,6 +55,7 @@ export const useInventory = () => {
         new_supplier: item.product?.supplier?.id ? "" : item.product?.supplier?.name || "",
       }));
 
+      // ✅ Store Managers see only their store's inventory
       const filteredInventory =
         role === "admin" ? processedInventory : processedInventory.filter((item) => item.store_id === Number(storeId));
 
@@ -71,10 +84,10 @@ export const useInventory = () => {
       // ✅ Update state instantly instead of waiting for a full refetch
       setInventory((prevInventory) => [newProduct, ...prevInventory]);
 
-      return true; // ✅ Return success
+      return true;
     } catch (error: any) {
       toast.error(`❌ Failed to add product: ${error.message}`);
-      return false; // ❌ Return failure
+      return false;
     }
   };
 
@@ -91,10 +104,10 @@ export const useInventory = () => {
         prevInventory.map((item) => (item.id === id ? updatedProduct : item))
       );
 
-      return true; // ✅ Return success
+      return true;
     } catch (error: any) {
       toast.error(`❌ Failed to update product: ${error.message}`);
-      return false; // ❌ Return failure
+      return false;
     }
   };
 
@@ -102,10 +115,13 @@ export const useInventory = () => {
    * ✅ Archive Product (Admins Only)
    */
   const handleArchiveProduct = async (id: number) => {
-    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can archive products.");
+    if (role !== "admin") {
+      return toast.error("❌ Unauthorized: Only admins can globally archive products.");
+    }
+
     try {
       await archiveProduct(id);
-      toast.success("✅ Product archived successfully.");
+      toast.success("✅ Product archived globally.");
 
       // ✅ Remove from list instead of waiting for a full refetch
       setInventory((prevInventory) => prevInventory.filter((item) => item.id !== id));
@@ -118,10 +134,13 @@ export const useInventory = () => {
    * ✅ Restore Product (Admins Only)
    */
   const handleRestoreProduct = async (id: number) => {
-    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can restore products.");
+    if (role !== "admin") {
+      return toast.error("❌ Unauthorized: Only admins can restore globally archived products.");
+    }
+
     try {
       await restoreProduct(id);
-      toast.success("✅ Product restored successfully.");
+      toast.success("✅ Product restored globally.");
       fetchInventory(); // ✅ Refresh inventory after restore
     } catch (error: any) {
       toast.error(`❌ Failed to restore product: ${error.message}`);
@@ -129,10 +148,55 @@ export const useInventory = () => {
   };
 
   /**
+   * ✅ Store-Level Archive (Admins & Managers)
+   */
+  const handleStoreArchive = async (id: number) => {
+    if (!["admin", "manager"].includes(role || "")) {
+      return toast.error("❌ Unauthorized: Only admins & managers can archive products at the store level.");
+    }
+
+    try {
+      await archiveStoreProduct(id);
+      toast.success("✅ Product archived in this store.");
+
+      // ✅ Update state instead of full refresh
+      setInventory((prevInventory) =>
+        prevInventory.map((item) => (item.id === id ? { ...item, deleted_at: new Date().toISOString() } : item))
+      );
+    } catch (error: any) {
+      toast.error(`❌ Failed to archive product in store: ${error.message}`);
+    }
+  };
+
+  /**
+   * ✅ Store-Level Restore (Admins & Managers)
+   */
+  const handleStoreRestore = async (id: number) => {
+    if (!["admin", "manager"].includes(role || "")) {
+      return toast.error("❌ Unauthorized: Only admins & managers can restore products at the store level.");
+    }
+
+    try {
+      await restoreStoreProduct(id);
+      toast.success("✅ Product restored in this store.");
+
+      // ✅ Update state instead of full refresh
+      setInventory((prevInventory) =>
+        prevInventory.map((item) => (item.id === id ? { ...item, deleted_at: null } : item))
+      );
+    } catch (error: any) {
+      toast.error(`❌ Failed to restore product in store: ${error.message}`);
+    }
+  };
+
+  /**
    * ✅ Permanently Delete Product (Admins Only)
    */
   const handleDeleteProduct = async (id: number) => {
-    if (role !== "admin") return toast.error("❌ Unauthorized: Only admins can delete products.");
+    if (role !== "admin") {
+      return toast.error("❌ Unauthorized: Only admins can permanently delete products.");
+    }
+
     try {
       await deleteProduct(id);
       toast.success("✅ Product permanently deleted.");
@@ -148,11 +212,13 @@ export const useInventory = () => {
     inventory,
     loading,
     isError,
-    handleArchiveProduct,
-    handleRestoreProduct,
-    handleDeleteProduct,
-    addInventory, // ✅ Expose Add Function
-    updateInventory, // ✅ Expose Update Function
+    handleArchiveProduct,   // ✅ Global Archive (Admin)
+    handleRestoreProduct,   // ✅ Global Restore (Admin)
+    handleStoreArchive,     // ✅ Store-Level Archive (Admin & Manager)
+    handleStoreRestore,     // ✅ Store-Level Restore (Admin & Manager)
+    handleDeleteProduct,    // ✅ Permanent Delete (Admin)
+    addInventory,
+    updateInventory,
     refreshInventory: fetchInventory,
     archivedFilter,
     setArchivedFilter,

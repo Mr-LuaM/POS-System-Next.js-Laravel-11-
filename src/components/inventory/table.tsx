@@ -13,7 +13,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import ProductDetailsModal from "./details-modal";
 import InventoryModal from "./inventory-modal"; // ✅ Import Inventory Modal
 import { Button } from "@/components/ui/button";
-
+import ManageStockModal from "./stock-modal"; // ✅ Import Manage Stock Modal
+import ManageStoreDetailsModal from "./store-details-modal";
 /**
  * ✅ Inventory Table (Handles Full CRUD & Archive)
  */
@@ -23,6 +24,10 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     loading,
     handleArchiveProduct,
     handleRestoreProduct,
+    handleDeleteProduct, // ✅ Ensure delete function is included
+    handleStoreArchive, // ✅ Fix Store-Level Archive
+    handleStoreRestore, // ✅ Fix Store-Level Restore
+
     archivedFilter,
     setArchivedFilter,
     addInventory,
@@ -35,14 +40,22 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   const { stores } = useStores();
 
   const [confirmDialog, setConfirmDialog] = useState<{ id: number; type: "archive" | "restore" } | null>(null);
+  const [globalConfirmDialog, setGlobalConfirmDialog] = useState<{ id: number; type: "archive" | "restore" } | null>(null);
+  const [deleteProductId, setDeleteProductId] = useState<number | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [globalConfirmLoading, setGlobalConfirmLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isInventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<any | null>(null);
+  const [selectedStockProduct, setSelectedStockProduct] = useState<any | null>(null);
+  const [isManageStockOpen, setManageStockOpen] = useState(false);
+  const [selectedStoreProduct, setSelectedStoreProduct] = useState<any | null>(null);
+  const [isManageStoreDetailsOpen, setManageStoreDetailsOpen] = useState(false);
 
-  /**
-   * ✅ Format Inventory Data (Flatten Nested Properties)
+/*  * ✅ Format Inventory Data (Flatten Nested Properties)
    */
   const formattedInventory = inventory.map((item) => ({
     id: item.id,
@@ -51,6 +64,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     categoryName: item.product?.category?.name ?? "N/A",
     supplier: item.product?.supplier ?? null,
     supplierName: item.product?.supplier?.name ?? "N/A",
+    storeId: item.store?.id ?? null, // ✅ Store ID for filtering
     store: item.store ?? null,
     storeName: item.store?.name ?? "N/A",
     storeLocation: item.store?.location ?? "N/A",
@@ -98,34 +112,69 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     }
   };
 
-  /**
-   * ✅ Open Confirm Dialog (Archive/Restore)
+/**
+   * ✅ Handle Store-Level Archive/Restore
    */
-  const openConfirmDialog = (id: number, type: "archive" | "restore") => {
-    setConfirmDialog({ id, type });
-  };
+const handleStoreConfirmAction = async () => {
+  if (!confirmDialog) return;
+  setConfirmLoading(true);
 
-  /**
-   * ✅ Handle Confirm Action (Archive/Restore)
-   */
-  const handleConfirmAction = async () => {
-    if (!confirmDialog) return;
-    setConfirmLoading(true);
-
-    try {
-      if (confirmDialog.type === "archive") {
-        await handleArchiveProduct(confirmDialog.id);
-      } else if (confirmDialog.type === "restore") {
-        await handleRestoreProduct(confirmDialog.id);
-      }
-      refreshInventory(); // ✅ Ensure the table refreshes
-    } catch (error) {
-      console.error("Error processing action:", error);
-    } finally {
-      setConfirmDialog(null);
-      setConfirmLoading(false);
+  try {
+    if (confirmDialog.type === "archive") {
+      await handleStoreArchive(confirmDialog.id);
+    } else {
+      await handleStoreRestore(confirmDialog.id);
     }
-  };
+    refreshInventory(); // ✅ Refresh after action
+  } catch (error) {
+    console.error("Error processing store archive/restore:", error);
+  } finally {
+    setConfirmDialog(null);
+    setConfirmLoading(false);
+  }
+};
+
+/**
+ * ✅ Handle Global Archive/Restore
+ */
+const handleGlobalConfirmAction = async () => {
+  if (!globalConfirmDialog) return;
+  setGlobalConfirmLoading(true);
+
+  try {
+    if (globalConfirmDialog.type === "archive") {
+      await handleArchiveProduct(globalConfirmDialog.id);
+    } else {
+      await handleRestoreProduct(globalConfirmDialog.id);
+    }
+    refreshInventory(); // ✅ Refresh after action
+  } catch (error) {
+    console.error("Error processing global archive/restore:", error);
+  } finally {
+    setGlobalConfirmDialog(null);
+    setGlobalConfirmLoading(false);
+  }
+};
+
+/**
+ * ✅ Handle Permanent Deletion
+ */
+const handleConfirmDelete = async () => {
+  if (!deleteProductId) return;
+  setDeleteLoading(true);
+
+  try {
+    await handleDeleteProduct(deleteProductId);
+    refreshInventory(); // ✅ Refresh after deletion
+    toast.success("✅ Product permanently deleted.");
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    toast.error("❌ Failed to delete product.");
+  } finally {
+    setDeleteProductId(null);
+    setDeleteLoading(false);
+  }
+};
 
   /**
    * ✅ Handle Add/Edit Submission
@@ -145,7 +194,30 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     }
     return success;
   };
+  const handleManageStock = (productId: number, storeId: number) => {
+    const product = formattedInventory.find((p) => p.id === productId && p.storeId === storeId);
+    
+    if (!product) {
+      console.error(`Product with ID ${productId} not found in store ${storeId}`);
+      return;
+    }
+  
+    setSelectedStockProduct(product);
+    setManageStockOpen(true);
+  };
+  
+  
+  const handleManageStoreDetails = (productId: number, storeId: number) => {
+    const product = formattedInventory.find((p) => p.id === productId && p.storeId === storeId);
+    if (!product) {
+      console.error(`Product with ID ${productId} not found in store ${storeId}`);
+      return;
+    }
+    setSelectedStoreProduct(product);
+    setManageStoreDetailsOpen(true);
+  
 
+};
   return (
     <div className="w-full p-6 space-y-6">
       {/* ✅ Page Header */}
@@ -171,15 +243,26 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
       {/* ✅ DataTable with Loading Skeleton */}
       {loading ? (
         <Skeleton className="h-10 w-full" />
+        
       ) : (
         <DataTable
-          columns={getInventoryColumns(role, handleEditProduct, handleViewDetails, openConfirmDialog)}
-          data={formattedInventory}
-          searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}
-          defaultPageSize={5}
-          pagination
-          sorting
-        />
+        columns={getInventoryColumns(
+          role,
+          handleEditProduct,
+          handleViewDetails,
+          (id, type) => setGlobalConfirmDialog({ id, type }), // ✅ Fix: Global Archive/Restore
+    (id, type) => setConfirmDialog({ id, type }), // ✅ Fix: Store-Level Archive/Restore
+          handleManageStock,
+          handleManageStoreDetails // ✅ Add this missing function
+        )}
+        data={formattedInventory}
+        searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}
+        defaultPageSize={5}
+        pagination
+        sorting
+      />
+      
+      
       )}
 
       {/* ✅ Product Details Modal */}
@@ -203,25 +286,89 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
         />
       )}
 
-      {/* ✅ Confirm Dialog */}
-      {confirmDialog && (
+    {/* ✅ Store-Level Archive/Restore Confirmation */}
+    {confirmDialog && (
         <ConfirmDialog
-          key={confirmDialog.id}
           open={true}
-          onConfirm={handleConfirmAction}
+          onConfirm={handleStoreConfirmAction}
           onCancel={() => setConfirmDialog(null)}
-          title={confirmDialog.type === "archive" ? "Archive Product" : "Restore Product"}
+          title={confirmDialog.type === "archive" ? "Archive Product in This Store?" : "Restore Product in This Store?"}
           description={
             confirmDialog.type === "archive"
-              ? "Are you sure you want to archive this product?"
-              : "Are you sure you want to restore this product?"
+              ? "This will temporarily hide the product from this store’s inventory. It will remain available in other stores unless archived globally."
+              : "This will restore the product in this store, making it available for sales and stock adjustments."
           }
-          confirmLabel={confirmDialog.type === "archive" ? "Archive" : "Restore"}
+          confirmLabel={confirmDialog.type === "archive" ? "Archive in Store" : "Restore in Store"}
           cancelLabel="Cancel"
-          confirmVariant={confirmDialog.type === "archive" ? "outline" : "secondary"}
+          confirmVariant={confirmDialog.type === "archive" ? "outline" : "primary"}
           loading={confirmLoading}
         />
       )}
+
+      {/* ✅ Global Archive/Restore Confirmation */}
+      {globalConfirmDialog && (
+        <ConfirmDialog
+          open={true}
+          onConfirm={handleGlobalConfirmAction}
+          onCancel={() => setGlobalConfirmDialog(null)}
+          title={globalConfirmDialog.type === "archive" ? "Archive Product Globally?" : "Restore Product Globally?"}
+          description={
+            globalConfirmDialog.type === "archive"
+              ? "Archiving this product globally will remove it from all stores. Only administrators will be able to restore it."
+              : "Restoring this product globally will make it available again across all stores."
+          }
+          confirmLabel={globalConfirmDialog.type === "archive" ? "Archive Globally" : "Restore Globally"}
+          cancelLabel="Cancel"
+          confirmVariant={globalConfirmDialog.type === "archive" ? "outline" : "primary"}
+          loading={globalConfirmLoading}
+        />
+      )}
+
+      {/* ✅ Hard Delete Confirmation */}
+      {deleteProductId && (
+        <ConfirmDialog
+          open={true}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteProductId(null)}
+          title="Permanently Delete Product?"
+          description="⚠️ This action is irreversible! Deleting this product will remove it from all records, including archived items. Are you sure you want to proceed?"
+          confirmLabel="Yes, Delete Permanently"
+          cancelLabel="Cancel"
+          confirmVariant="destructive"
+          loading={deleteLoading}
+        />
+      )}
+
+
+        {/* ✅ Manage Stock Modal */}
+     {/* ✅ Manage Stock Modal */}
+{isManageStockOpen && selectedStockProduct && (
+  <ManageStockModal
+    isOpen={isManageStockOpen}
+    onClose={() => {
+      setManageStockOpen(false);
+      refreshInventory(); // ✅ Refresh inventory when closing stock modal
+    }}
+    stockData={selectedStockProduct}
+    refreshInventory={refreshInventory} // ✅ Pass to modal for refresh after update
+  />
+)}
+
+{/* ✅ Manage Store Details Modal */}
+{isManageStoreDetailsOpen && selectedStoreProduct && (
+  <ManageStoreDetailsModal
+    isOpen={isManageStoreDetailsOpen}
+    onClose={() => {
+      setManageStoreDetailsOpen(false);
+      refreshInventory(); // ✅ Refresh inventory when closing store details modal
+    }}
+    storeData={selectedStoreProduct}
+    refreshInventory={refreshInventory} // ✅ Pass to modal for refresh after update
+  />
+)}
+
+
+
     </div>
   );
 }

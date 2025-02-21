@@ -48,6 +48,7 @@ interface InventoryModalProps {
   onClose: () => void;
   onSubmit: (values: InventorySchemaType) => Promise<boolean>;
   inventoryData?: any | null;
+  refreshInventory: () => void; // ✅ Ensure this is required
 }
 
 export default function InventoryModal({ isOpen, onClose, onSubmit, inventoryData }: InventoryModalProps) {

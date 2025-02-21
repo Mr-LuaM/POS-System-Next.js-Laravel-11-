@@ -10,7 +10,8 @@ export interface InventoryProduct {
   price: number;
   stock_quantity: number;
   low_stock_threshold?: number;
-  deleted_at?: string | null; // ✅ Check if product is archived
+  deleted_at?: string | null; // ✅ Store-level archive status
+  product_deleted_at?: string | null; // ✅ Global archive status
   product?: {
     id: number;
     name: string;
@@ -47,11 +48,8 @@ export const getInventory = async (includeArchived = false): Promise<InventoryPr
 
     const response = await axiosInstance.get(`/inventory`, { params });
 
-    console.log("📦 Inventory API Response:", response.data); // ✅ Debugging API response
-
     return response.data.data || []; // ✅ Always return an array
   } catch (error) {
-    console.error("❌ Inventory Fetch Error:", error);
     throw new Error(handleApiError(error));
   }
 };
@@ -61,19 +59,7 @@ export const getInventory = async (includeArchived = false): Promise<InventoryPr
  */
 export const addInventoryItem = async (productData: any): Promise<InventoryProduct> => {
   try {
-    if (typeof window !== "undefined" && sessionStorage.getItem("role") !== "admin") {
-      throw new Error("❌ Unauthorized: Only admins can add products.");
-    }
-
-    const formattedData = {
-      ...productData,
-      category_id: productData.category_id === "other" ? undefined : productData.category_id,
-      supplier_id: productData.supplier_id === "other" ? undefined : productData.supplier_id,
-      new_category: productData.category_id === "other" ? productData.new_category : undefined,
-      new_supplier: productData.supplier_id === "other" ? productData.new_supplier : undefined,
-    };
-
-    const response = await axiosInstance.post("/inventory/add", formattedData);
+    const response = await axiosInstance.post("/inventory/add", productData);
     return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -85,19 +71,7 @@ export const addInventoryItem = async (productData: any): Promise<InventoryProdu
  */
 export const updateInventoryItem = async (productId: number, productData: any): Promise<InventoryProduct> => {
   try {
-    if (typeof window !== "undefined" && sessionStorage.getItem("role") !== "admin") {
-      throw new Error("❌ Unauthorized: Only admins can update products.");
-    }
-
-    const formattedData = {
-      ...productData,
-      category_id: productData.category_id === "other" ? undefined : productData.category_id,
-      supplier_id: productData.supplier_id === "other" ? undefined : productData.supplier_id,
-      new_category: productData.category_id === "other" ? productData.new_category : undefined,
-      new_supplier: productData.supplier_id === "other" ? productData.new_supplier : undefined,
-    };
-
-    const response = await axiosInstance.put(`/inventory/update/${productId}`, formattedData);
+    const response = await axiosInstance.put(`/inventory/update/${productId}`, productData);
     return response.data.data;
   } catch (error) {
     throw new Error(handleApiError(error));
@@ -112,11 +86,6 @@ export const manageStock = async (
   stockData: { type: string; quantity: number; reason?: string }
 ): Promise<InventoryProduct> => {
   try {
-    const role = typeof window !== "undefined" ? sessionStorage.getItem("role") : "";
-    if (!["admin", "manager"].includes(role || "")) {
-      throw new Error("❌ Unauthorized: Only admins and managers can adjust stock.");
-    }
-
     const response = await axiosInstance.put(`/inventory/manage-stock/${storeProductId}`, stockData);
     return response.data.data;
   } catch (error) {
@@ -125,30 +94,44 @@ export const manageStock = async (
 };
 
 /**
- * ✅ Archive a Product (Admins Only)
+ * ✅ Archive a Product (GLOBAL - Admins Only)
  */
-export const archiveProduct = async (storeProductId: number): Promise<void> => {
+export const archiveProduct = async (productId: number): Promise<void> => {
   try {
-    if (typeof window !== "undefined" && sessionStorage.getItem("role") !== "admin") {
-      throw new Error("❌ Unauthorized: Only admins can archive products.");
-    }
-
-    await axiosInstance.delete(`/inventory/archive/${storeProductId}`);
+    await axiosInstance.put(`/inventory/global-archive/${productId}`);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
 };
 
 /**
- * ✅ Restore an Archived Product (Admins Only)
+ * ✅ Restore a Globally Archived Product (Admins Only)
  */
-export const restoreProduct = async (storeProductId: number): Promise<void> => {
+export const restoreProduct = async (productId: number): Promise<void> => {
   try {
-    if (typeof window !== "undefined" && sessionStorage.getItem("role") !== "admin") {
-      throw new Error("❌ Unauthorized: Only admins can restore products.");
-    }
+    await axiosInstance.put(`/inventory/global-restore/${productId}`);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
 
-    await axiosInstance.put(`/inventory/restore/${storeProductId}`);
+/**
+ * ✅ Store-Level Archive (Admins & Managers)
+ */
+export const archiveStoreProduct = async (storeProductId: number): Promise<void> => {
+  try {
+    await axiosInstance.put(`/inventory/store-archive/${storeProductId}`);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * ✅ Store-Level Restore (Admins & Managers)
+ */
+export const restoreStoreProduct = async (storeProductId: number): Promise<void> => {
+  try {
+    await axiosInstance.put(`/inventory/store-restore/${storeProductId}`);
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -157,13 +140,9 @@ export const restoreProduct = async (storeProductId: number): Promise<void> => {
 /**
  * ✅ Permanently Delete a Product (Admins Only)
  */
-export const deleteProduct = async (storeProductId: number): Promise<void> => {
+export const deleteProduct = async (productId: number): Promise<void> => {
   try {
-    if (typeof window !== "undefined" && sessionStorage.getItem("role") !== "admin") {
-      throw new Error("❌ Unauthorized: Only admins can delete products.");
-    }
-
-    await axiosInstance.delete(`/inventory/delete/${storeProductId}`);
+    await axiosInstance.delete(`/inventory/delete/${productId}`);
   } catch (error) {
     throw new Error(handleApiError(error));
   }

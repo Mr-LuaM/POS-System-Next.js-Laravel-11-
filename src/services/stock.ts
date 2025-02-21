@@ -2,9 +2,12 @@ import { axiosInstance, handleApiError } from "@/lib/apiService";
 import { InventoryProduct } from "./inventory";
 
 /**
- * ✅ Manage Stock (Restock, Sale, Damage, Return, Adjustment)
+ * ✅ Manage Stock (Restock, Adjustment)
  */
-export const manageStock = async (storeProductId: number, stockData: { type: string; quantity: number; reason?: string }): Promise<InventoryProduct> => {
+export const manageStock = async (
+  storeProductId: number,
+  stockData: { type: string; quantity: number; reason?: string }
+): Promise<InventoryProduct> => {
   try {
     const role = sessionStorage.getItem("role");
     if (role !== "admin" && role !== "manager") throw new Error("❌ Unauthorized: Only managers and admins can adjust stock.");
@@ -26,6 +29,36 @@ export const getLowStockProducts = async (): Promise<InventoryProduct[]> => {
 
     const response = await axiosInstance.get(`/inventory/low-stock`, { params: { store_id: storeId } });
     return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * ✅ Update Product Price (Admin Only)
+ */
+export const updateProductPrice = async (storeProductId: number, newPrice: number): Promise<boolean> => {
+  try {
+    const role = sessionStorage.getItem("role");
+    if (role !== "admin") throw new Error("❌ Unauthorized: Only admins can update prices.");
+
+    await axiosInstance.put(`/inventory/update-price/${storeProductId}`, { price: newPrice });
+    return true;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
+ * ✅ Update Low Stock Threshold (Managers & Admins Only)
+ */
+export const updateLowStockThreshold = async (storeProductId: number, threshold: number): Promise<boolean> => {
+  try {
+    const role = sessionStorage.getItem("role");
+    if (role !== "admin" && role !== "manager") throw new Error("❌ Unauthorized: Only managers and admins can update stock thresholds.");
+
+    await axiosInstance.put(`/inventory/update-threshold/${storeProductId}`, { low_stock_threshold: threshold });
+    return true;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
