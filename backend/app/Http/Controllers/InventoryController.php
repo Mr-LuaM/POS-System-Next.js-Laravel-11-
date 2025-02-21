@@ -220,13 +220,24 @@ class InventoryController extends Controller
             $storeProduct = StoreProduct::lockForUpdate()->findOrFail($store_product_id);
             $user = Auth::user();
 
+            // ✅ Ensure only Admin or Store Manager can manage stock for their store
             if ($user->role !== 'admin' && $storeProduct->store_id !== $user->store_id) {
                 return ResponseService::error('Unauthorized access', null, 403);
             }
 
+            // ✅ Validate request data
             $validator = Validator::make($request->all(), [
-                'type' => 'required|in:restock,sale,adjustment,damage,return',
-                'quantity' => 'required|integer|min:1',
+                'type' => 'required|in:restock,adjustment,damage',
+                'quantity' => ['required', 'integer', function ($attribute, $value, $fail) use ($request) {
+                    // ✅ Ensure restock is always positive
+                    if ($request->type === 'restock' && $value < 1) {
+                        $fail("Restock quantity must be a positive number.");
+                    }
+                    // ✅ Ensure damage is always negative
+                    if ($request->type === 'damage' && $value > -1) {
+                        $fail("Damage quantity must be a negative number.");
+                    }
+                }],
                 'reason' => 'nullable|string|max:255'
             ]);
 
@@ -234,17 +245,17 @@ class InventoryController extends Controller
                 return ResponseService::validationError($validator->errors());
             }
 
-            // Ensure stock never goes negative
-            if (in_array($request->type, ['sale', 'damage', 'adjustment']) && $storeProduct->stock_quantity < $request->quantity) {
-                return ResponseService::error('Insufficient stock', null, 400);
+            // ✅ Ensure stock never goes negative
+            if ($request->type !== 'restock' && ($storeProduct->stock_quantity + $request->quantity) < 0) {
+                return ResponseService::error('Insufficient stock to perform this action', null, 400);
             }
 
+            // ✅ Update stock quantity
             $storeProduct->update([
-                'stock_quantity' => $request->type === 'restock' || $request->type === 'return'
-                    ? $storeProduct->stock_quantity + $request->quantity
-                    : $storeProduct->stock_quantity - $request->quantity
+                'stock_quantity' => $storeProduct->stock_quantity + $request->quantity
             ]);
 
+            // ✅ Record stock movement
             StockMovement::create([
                 'product_id' => $storeProduct->product_id,
                 'store_id' => $storeProduct->store_id,
@@ -257,24 +268,94 @@ class InventoryController extends Controller
         });
     }
 
+
     /**
      * ✅ Archive a product for a specific store (Soft Delete)
      */
-    public function archiveProduct($store_product_id)
+    public function storeArchiveProduct($store_product_id)
     {
         try {
             $storeProduct = StoreProduct::findOrFail($store_product_id);
             $storeProduct->delete();
 
-            if (!StoreProduct::where('product_id', $storeProduct->product_id)->whereNull('deleted_at')->exists()) {
-                Product::where('id', $storeProduct->product_id)->delete();
-            }
-
-            return ResponseService::success('Product archived successfully for this store');
+            return ResponseService::success('✅ Product archived for this store.');
         } catch (ModelNotFoundException $e) {
-            return ResponseService::error('Product not found', null, 404);
+            return ResponseService::error('❌ Product not found.', null, 404);
         }
     }
+
+    /**
+     * ✅ Restore an archived product for a specific store
+     */
+    public function storeRestoreProduct($store_product_id)
+    {
+        try {
+            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
+            $storeProduct->restore();
+
+            return ResponseService::success('✅ Product restored for this store.');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('❌ Product not found.', null, 404);
+        }
+    }
+    /**
+     * ✅ Archive a product globally (Remove from all stores)
+     */
+    public function globalArchiveProduct($product_id)
+    {
+        try {
+            $product = Product::findOrFail($product_id);
+            StoreProduct::where('product_id', $product_id)->delete(); // Soft delete from all stores
+            $product->delete(); // Soft delete globally
+
+            return ResponseService::success('✅ Product archived globally.');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('❌ Product not found.', null, 404);
+        }
+    }
+
+    /**
+     * ✅ Restore a globally archived product
+     */
+    public function globalRestoreProduct($product_id)
+    {
+        try {
+            $product = Product::onlyTrashed()->findOrFail($product_id);
+            $product->restore();
+            StoreProduct::onlyTrashed()->where('product_id', $product_id)->restore(); // Restore in all stores
+
+            return ResponseService::success('✅ Product restored globally.');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('❌ Product not found.', null, 404);
+        }
+    }
+    /**
+     * ✅ Permanently delete a product (Only if archived everywhere)
+     */
+    public function deleteProduct($product_id)
+    {
+        try {
+            $product = Product::onlyTrashed()->findOrFail($product_id);
+
+            // 🔹 Prevent deletion if product has sales history
+            if ($product->saleItems()->exists()) {
+                return ResponseService::error('❌ Cannot delete product. It has sales history.', null, 400);
+            }
+
+            // ✅ Ensure all stores have archived it before global deletion
+            if (StoreProduct::where('product_id', $product_id)->exists()) {
+                return ResponseService::error('❌ Cannot delete product. It is still active in some stores.', null, 400);
+            }
+
+            StoreProduct::onlyTrashed()->where('product_id', $product_id)->forceDelete(); // Remove all store-level records
+            $product->forceDelete(); // Permanently delete product
+
+            return ResponseService::success('✅ Product permanently deleted.');
+        } catch (ModelNotFoundException $e) {
+            return ResponseService::error('❌ Product not found.', null, 404);
+        }
+    }
+
     /**
      * ✅ Get low-stock products per store (Stock < Threshold)
      */
@@ -319,29 +400,53 @@ class InventoryController extends Controller
         }
     }
 
-    /**
-     * ✅ Permanently delete a product (Only if already archived in all stores)
-     */
-    public function deleteProduct($store_product_id)
+
+    public function updatePrice(Request $request, $storeProductId)
     {
-        try {
-            $storeProduct = StoreProduct::onlyTrashed()->findOrFail($store_product_id);
+        $storeProduct = StoreProduct::findOrFail($storeProductId);
 
-            // 🔹 Prevent deletion if product has sales history
-            if ($storeProduct->saleItems()->exists()) {
-                return ResponseService::error('Cannot delete product. It has sales history.', null, 400);
-            }
-
-            $storeProduct->forceDelete();
-
-            // 🔹 Delete `products` only if no stores remain
-            if (!StoreProduct::where('product_id', $storeProduct->product_id)->exists()) {
-                Product::where('id', $storeProduct->product_id)->forceDelete();
-            }
-
-            return ResponseService::success('Product permanently deleted for this store');
-        } catch (ModelNotFoundException $e) {
-            return ResponseService::error('Product not found', null, 404);
+        // Check if user is authorized (Admin or Store Manager of the same store)
+        if (auth()->user()->role !== 'admin' && auth()->user()->store_id !== $storeProduct->store_id) {
+            return ResponseService::error("Unauthorized access", null, 403);
         }
+
+        $validator = Validator::make($request->all(), [
+            'price' => 'required|numeric|min:0.01'
+        ]);
+
+        if ($validator->fails()) {
+            return ResponseService::validationError($validator->errors());
+        }
+
+        // ✅ Update the price
+        $storeProduct->update([
+            'price' => $request->price
+        ]);
+
+        return ResponseService::success("Price updated successfully", $storeProduct);
+    }
+    public function updateThreshold(Request $request, $storeProductId)
+    {
+        $storeProduct = StoreProduct::findOrFail($storeProductId);
+
+        // Check if user is authorized (Admin or Store Manager of the same store)
+        if (auth()->user()->role !== 'admin' && auth()->user()->store_id !== $storeProduct->store_id) {
+            return ResponseService::error("Unauthorized access", null, 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'low_stock_threshold' => 'required|integer|min:0'
+        ]);
+
+        if ($validator->fails()) {
+            return ResponseService::validationError($validator->errors());
+        }
+
+        // ✅ Update the low stock threshold
+        $storeProduct->update([
+            'low_stock_threshold' => $request->low_stock_threshold
+        ]);
+
+        return ResponseService::success("Low stock threshold updated successfully", $storeProduct);
     }
 }

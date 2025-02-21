@@ -49,14 +49,32 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/update-role/{id}', [UserController::class, 'updateUserRole']);
         });
 
-        // ✅ Inventory Management (Admins See All)
+
+
+        // ✅ Inventory Management (Admins See All, Store Managers Limited)
         Route::prefix('/inventory')->group(function () {
-            Route::get('/', [InventoryController::class, 'getAll']);
-            Route::post('/add', [InventoryController::class, 'addProduct']);
-            Route::put('/update/{id}', [InventoryController::class, 'updateProduct']);
-            Route::delete('/archive/{id}', [InventoryController::class, 'archiveProduct']);
-            Route::put('/restore/{id}', [InventoryController::class, 'restoreProduct']);
-            Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']);
+            Route::get('/', [InventoryController::class, 'getAll']); // ✅ Fetch all inventory
+            Route::post('/add', [InventoryController::class, 'addProduct']); // ✅ Add product
+            Route::put('/update/{id}', [InventoryController::class, 'updateProduct']); // ✅ Update product
+
+            // ✅ Stock Management
+            Route::put('/manage-stock/{storeProductId}', [InventoryController::class, 'manageStock']); // ✅ Update stock (Restock, Sale, Damage, etc.)
+            Route::get('/low-stock', [InventoryController::class, 'getLowStockProducts']); // ✅ Fetch low-stock alerts
+
+            // ✅ Store-Level Archive/Restore
+            Route::put('/store-archive/{id}', [InventoryController::class, 'storeArchiveProduct']); // ✅ Archive in Store
+            Route::put('/store-restore/{id}', [InventoryController::class, 'storeRestoreProduct']); // ✅ Restore in Store
+
+            // ✅ Global-Level Archive/Restore (Admin Only)
+            Route::put('/global-archive/{id}', [InventoryController::class, 'globalArchiveProduct']); // ✅ Global Archive
+            Route::put('/global-restore/{id}', [InventoryController::class, 'globalRestoreProduct']); // ✅ Global Restore
+
+            // ✅ Permanent Deletion (Admin Only)
+            Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']); // ✅ Hard delete
+
+            // ✅ Store-Level Pricing & Threshold Management
+            Route::put('/update-price/{storeProductId}', [InventoryController::class, 'updatePrice']);
+            Route::put('/update-threshold/{storeProductId}', [InventoryController::class, 'updateThreshold']);
         });
 
         // ✅ Store Management
