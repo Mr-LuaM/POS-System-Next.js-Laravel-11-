@@ -453,43 +453,31 @@ class InventoryController extends Controller
     public function searchBySkuOrBarcode(Request $request)
     {
         try {
-            $archived = $request->query('archived', 'all'); // Archived filter (default: 'all')
             $storeId = $request->query('store_id'); // Store filter (optional)
             $user = Auth::user(); // Get the authenticated user
-            $query = $request->query('query'); // SKU or Barcode query
+            $query = trim($request->query('query')); // SKU or Barcode query (trimmed)
 
             if (!$query) {
-                return ResponseService::error('Search query is required');
+                return ResponseService::error('❌ Search query is required');
             }
+
+            // 🔹 Log query for debugging
+            \Log::info("🔎 Searching for SKU/Barcode: $query");
 
             // 🔹 Base Query: Fetch product details related to store products
             $storeProductQuery = StoreProduct::with([
-                'product' => fn($query) => $query->withTrashed(), // Include soft-deleted products
                 'product.category',
-                'product.supplier' => fn($query) => $query->withTrashed(), // Include soft-deleted suppliers
+                'product.supplier',
                 'store'
             ])
                 ->whereHas('product', function ($q) use ($query) {
-                    // Search by SKU or Barcode
-                    $q->where('sku', $query)->orWhere('barcode', $query);
+                    // ✅ Fix: Ensure Alphanumeric SKU & Barcode Searches Work
+                    $q->whereRaw('LOWER(sku) COLLATE utf8mb4_general_ci = ?', [$query])
+                        ->orWhereRaw('LOWER(barcode) COLLATE utf8mb4_general_ci = ?', [$query]);
                 });
-
-            // 🔹 Filter by Archived (Handle soft-deleted products)
-            if ($archived === 'true') {
-                // Fetch only archived (soft-deleted) products
-                $storeProductQuery->onlyTrashed();
-            } elseif ($archived === 'false') {
-                // Fetch only active (non-deleted) products
-                $storeProductQuery->whereNull('store_products.deleted_at')
-                    ->whereHas('product', fn($q) => $q->whereNull('deleted_at'));
-            } else {
-                // Fetch both active & archived products (default behavior)
-                $storeProductQuery->withTrashed();
-            }
 
             // 🔹 Apply Store Filter (For non-admin users)
             if ($user->role !== 'admin') {
-                // Admins can see all stores; other roles are limited to their own store
                 $storeProductQuery->where('store_id', $user->store_id);
             }
 
@@ -498,17 +486,28 @@ class InventoryController extends Controller
                 $storeProductQuery->where('store_id', $storeId);
             }
 
-            // 🔹 Fetch First Matching Result (Only one product is expected for SKU or Barcode)
+            // 🔹 Fetch First Matching Result
             $storeProduct = $storeProductQuery->first();
 
             if (!$storeProduct) {
-                return ResponseService::error('Product not found');
+                return ResponseService::error('❌ Product not found in any store');
+            }
+
+            // 🔹 Check if the product is **Globally Archived**
+            if ($storeProduct->product->deleted_at) {
+                return ResponseService::error('⚠️ This product is globally archived and cannot be sold.');
+            }
+
+            // 🔹 Check if the product is **Archived at the Store Level**
+            if ($storeProduct->deleted_at) {
+                return ResponseService::error('⚠️ This product is archived in this store and cannot be sold.');
             }
 
             // ✅ Return Success with Product Details
-            return ResponseService::success('Product found', $storeProduct);
+            return ResponseService::success('✅ Product found', $storeProduct);
         } catch (\Exception $e) {
-            return ResponseService::error('Failed to fetch product', $e->getMessage());
+            \Log::error("❌ Error in searchBySkuOrBarcode: " . $e->getMessage());
+            return ResponseService::error('❌ Failed to fetch product', $e->getMessage());
         }
     }
 }

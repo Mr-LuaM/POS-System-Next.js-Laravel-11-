@@ -18,6 +18,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\LoyaltyPointController;
 use App\Http\Controllers\RefundController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\TransactionController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -154,6 +155,7 @@ Route::middleware('auth:api')->group(function () {
             Route::post('/process', [SalesController::class, 'processSale']);
             Route::post('/refund/{id}', [SalesController::class, 'refundSale']);
         });
+        Route::post('/transaction/complete', [TransactionController::class, 'completeTransaction']);
 
         // ✅ Payments
         Route::prefix('/payments')->group(function () {
