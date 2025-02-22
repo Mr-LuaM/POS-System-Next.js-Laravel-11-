@@ -1,136 +1,254 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useInventory } from "@/hooks/useInventory";
+
+import { useEffect, useState, useRef } from "react";
+import { getUserName, getStoreName } from "@/lib/auth"; // ✅ Fetch cashier/store info
+import { useCustomers } from "@/hooks/useCustomers"; // ✅ Fetch customer info
+import { useInventory } from "@/hooks/useInventory"; // ✅ Inventory Hook
+import POSHeader from "@/components/pos/header";
+import Cart from "@/components/pos/cart";
+import PaymentActions from "@/components/pos/payment-actions";
+import ReceiptModal from "@/components/pos/receipt-modal";
+import POSSearchBar from "@/components/pos/search-bar";
+import { toast } from "sonner";
+import PaymentModal from "@/components/pos/payment-modal"; // ✅ New modal for cash payments
+
+interface CartItem {
+  id: number;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface Transaction {
+  id: number;
+  storeName: string;
+  total: number;
+  change: number;
+  customerId: number;
+  customerName: string;
+  paymentMethod: "cash" | "credit" | "digital";
+}
 
 export default function POSPage() {
-  const { inventory, loading, setArchivedFilter, refreshInventory } = useInventory();
-  const [cart, setCart] = useState<{ id: number; name: string; price: number; quantity: number }[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState("Cash");
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "credit" | "digital">("cash");
+  const [cashReceived, setCashReceived] = useState<number | null>(null);
+  const [cashChange, setCashChange] = useState<number>(0);
+  const [cashierName, setCashierName] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState<string>("Guest");
+  const [customerLoyaltyPoints, setCustomerLoyaltyPoints] = useState<number | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ✅ Load Cashier & Store Data
   useEffect(() => {
-    setArchivedFilter(false); // ✅ Ensure only active products are fetched
-    refreshInventory(); // ✅ Refresh inventory when POS loads
-  }, [setArchivedFilter, refreshInventory]);
+    getUserName().then(setCashierName);
+    getStoreName().then(setStoreName);
+  }, []);
 
-  const addToCart = (product: { id: number; name: string; price: number }) => {
-    const existingItem = cart.find((item) => item.id === product.id);
-    if (existingItem) {
-      setCart(cart.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
+  // ✅ Hooks for Inventory and Customers
+  const { searchProduct } = useInventory();
+  const { customer, searchCustomerByBarcode } = useCustomers();
+
+  /**
+   * ✅ Update Customer Info When a Customer is Selected
+   */
+  useEffect(() => {
+    setCustomerName(customer?.name ?? "Guest");
+    setCustomerLoyaltyPoints(customer?.loyaltyPoints ?? null);
+  }, [customer]);
+
+  /**
+   * ✅ Focus on Search Input on Load & After Every Scan
+   */
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, [cart, customer]);
+
+  /**
+   * ✅ Handle Keyboard Shortcuts
+   */
+  useEffect(() => {
+    const handleShortcut = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) return; // Prevent browser shortcuts
+
+      switch (e.key) {
+        case "F5":
+          e.preventDefault();
+          openPaymentModal("cash");
+          break;
+        case "F6":
+          e.preventDefault();
+          processTransaction("credit", null);
+          break;
+        case "F7":
+          e.preventDefault();
+          processTransaction("digital", null);
+          break;
+        case "F8":
+          e.preventDefault();
+          voidTransaction();
+          break;
+        case "Escape":
+          searchInputRef.current?.focus();
+          break;
+        default:
+          break;
+      }
+    };
+
+    document.addEventListener("keydown", handleShortcut);
+    return () => document.removeEventListener("keydown", handleShortcut);
+  }, [cart]);
+
+  /**
+   * ✅ Handle Barcode & Product Search
+   */
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) return;
+
+    if (query.startsWith("c@")) {
+      const barcode = query.slice(2);
+      const foundCustomer = await searchCustomerByBarcode(barcode);
+
+      if (foundCustomer) {
+        setCustomerName(foundCustomer.name);
+        setCustomerLoyaltyPoints(foundCustomer.loyaltyPoints ?? null);
+        toast.success(`✅ Customer Loaded: ${foundCustomer.name}`);
+      } else {
+        toast.error("❌ Customer not found.");
+      }
+      return;
+    }
+
+    let quantity = 1;
+    let barcode = query;
+    const match = query.match(/^(\d+)@(.+)$/);
+    if (match) {
+      quantity = parseInt(match[1], 10);
+      barcode = match[2];
+    }
+
+    const product = await searchProduct(barcode);
+    if (product) {
+      handleAddToCart({
+        id: product.id,
+        name: product.name,
+        price: parseFloat(product.price),
+        quantity,
+      });
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      toast.error("❌ Product not found.");
     }
   };
 
-  const removeFromCart = (id: number) => {
-    setCart(cart.filter((item) => item.id !== id));
+  /**
+   * ✅ Add or Update Item in the Cart
+   */
+  const handleAddToCart = (newItem: CartItem) => {
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((item) => item.id === newItem.id);
+      return existingItem
+        ? prevCart.map((item) =>
+            item.id === newItem.id ? { ...item, quantity: item.quantity + newItem.quantity } : item
+          )
+        : [...prevCart, newItem];
+    });
   };
 
-  const totalAmount = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  /**
+   * ✅ Open Payment Modal for Cash Payment
+   */
+  const openPaymentModal = (method: "cash") => {
+    setPaymentMethod(method);
+    setIsPaymentModalOpen(true);
+  };
+  const handlePaymentCompletion = (payments: { method: string; amount: number; change: number }[]) => {
+    if (cart.length === 0) {
+      toast.error("❌ No items in cart.");
+      return;
+    }
+  
+    const { method, amount, change } = payments[0];
+  
+    const newTransaction: Transaction = {
+      id: Date.now(),
+      storeName: storeName ?? "POS Store",
+      total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      change,
+      customerId: customer?.id ?? Math.floor(Math.random() * 100000) + 1,
+      customerName: customer?.name ?? "Guest",
+      paymentMethod: method,
+    };
+  
+    setTransaction(newTransaction);
+    setIsReceiptModalOpen(true);
+    setIsPaymentModalOpen(false);
+    setCart([]); // ✅ Clear cart after successful payment
+  
+    toast.success(`✅ Payment Successful (${method.toUpperCase()})`);
+  };
+  
+  /**
+   * ✅ Process Payment & Push Transaction
+   */
+  const processTransaction = (method: "cash" | "credit" | "digital", cashAmount: number | null) => {
+    if (cart.length === 0) {
+      toast.error("❌ Cart is empty.");
+      return;
+    }
+
+    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (method === "cash" && cashAmount !== null && cashAmount < totalAmount) {
+      toast.error("❌ Insufficient cash received.");
+      return;
+    }
+
+    const change = method === "cash" && cashAmount !== null ? cashAmount - totalAmount : 0;
+    setCashChange(change);
+
+    const newTransaction: Transaction = {
+      id: Date.now(),
+      storeName: storeName ?? "POS Store",
+      total: totalAmount,
+      change: change,
+      customerId: customer?.id ?? Math.floor(Math.random() * 100000) + 1,
+      customerName: customer?.name ?? "Guest",
+      paymentMethod: method,
+    };
+
+    setTransaction(newTransaction);
+    setIsReceiptModalOpen(true);
+    setIsPaymentModalOpen(false);
+    toast.success(`✅ Paid via ${method.toUpperCase()}. Change: ₱${change.toFixed(2)}`);
+
+    setCart([]);
+  };
+
+  /**
+   * ✅ Void Transaction (Clear Cart)
+   */
+  const voidTransaction = () => {
+    setCart([]);
+    toast.warning("🛑 Transaction Voided.");
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* ✅ Search Bar for Products */}
-      <div className="mb-4">
-        <Input
-          placeholder="Scan barcode or enter product name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
-      <div className="flex gap-4">
-        {/* ✅ Store-Specific Inventory */}
-        <Card className="flex-1">
-          <CardContent className="p-4">
-            <h2 className="text-xl font-semibold mb-3">Inventory</h2>
-            {loading ? <p>Loading inventory...</p> : (
-              <div className="grid grid-cols-2 gap-4">
-                {inventory
-                  .filter((product) =>
-                    product.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    product.product.barcode.includes(searchQuery)
-                  )
-                  .map((product) => (
-                    <Button key={product.id} onClick={() => addToCart(product.product)}>
-                      {product.product.name} (${product.product.price.toFixed(2)})
-                    </Button>
-                  ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ✅ Cart Section */}
-        <Card className="w-1/3">
-          <CardContent className="p-4">
-            <h2 className="text-xl font-semibold mb-3">Cart</h2>
-            {cart.length === 0 ? <p>No items in cart.</p> : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cart.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>${(item.price * item.quantity).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button onClick={() => removeFromCart(item.id)} variant="destructive" size="sm">X</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <div className="mt-4 text-lg font-bold">Total: ${totalAmount.toFixed(2)}</div>
-
-            {/* ✅ Checkout Dialog */}
-            <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-              <DialogTrigger asChild>
-                <Button className="mt-4 w-full">Checkout</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Complete Payment</DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-4">
-                  <p>Total Amount: <span className="font-bold">${totalAmount.toFixed(2)}</span></p>
-
-                  {/* ✅ Payment Method Selection */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">{paymentMethod}</Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onSelect={() => setPaymentMethod("Cash")}>Cash</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setPaymentMethod("Credit Card")}>Credit Card</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setPaymentMethod("E-Wallet")}>E-Wallet</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <Button className="w-full" onClick={() => setIsCheckoutOpen(false)}>
-                    Confirm Payment
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <POSHeader cashierName={cashierName} storeName={storeName} customerName={customerName} customerLoyaltyPoints={customerLoyaltyPoints} />
+      <POSSearchBar ref={searchInputRef} onSearch={handleSearch} />
+      <Cart cart={cart} updateQuantity={handleAddToCart} removeItem={(id) => setCart(cart.filter((item) => item.id !== id))} voidTransaction={voidTransaction} />
+      <PaymentActions processTransaction={openPaymentModal} />
+      <ReceiptModal isOpen={isReceiptModalOpen} onClose={() => setIsReceiptModalOpen(false)} transaction={transaction} />
+      <PaymentModal
+  isOpen={isPaymentModalOpen}
+  onClose={() => setIsPaymentModalOpen(false)}
+  totalAmount={cart.reduce((sum, item) => sum + item.price * item.quantity, 0)}
+  onCompletePayment={handlePaymentCompletion} // ✅ Correctly passed function
+/>
     </div>
   );
 }

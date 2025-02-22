@@ -26,6 +26,32 @@ export const getStores = async (archived: "true" | "false" | "all" = "all"): Pro
 };
 
 /**
+ * ✅ Fetch a Store by ID
+ */
+export const getStoreById = async (storeId: number): Promise<Store | null> => {
+  try {
+    const response = await axiosInstance.get(`/stores/${storeId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error(`Failed to fetch store with ID ${storeId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * ✅ Fetch a Store's Name Only (Optimized for UI)
+ */
+export const fetchStoreName = async (storeId: number): Promise<string> => {
+  try {
+    const store = await getStoreById(storeId);
+    return store?.name ?? "Unknown Store";
+  } catch (error) {
+    console.error("Failed to fetch store name:", error);
+    return "Unknown Store";
+  }
+};
+
+/**
  * ✅ Add a New Store
  */
 export const addStore = async (storeData: Omit<Store, "id" | "created_at" | "deleted_at">): Promise<Store> => {

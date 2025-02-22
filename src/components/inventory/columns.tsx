@@ -150,7 +150,7 @@ export function getInventoryColumns(
               {/* ✅ Global Archive/Restore (Admin Only) */}
               {role === "admin" && (
                 <DropdownMenuItem
-                  onClick={() => onGlobalArchive(row.original.id, isGloballyArchived ? "restore" : "archive")}
+                  onClick={() => onGlobalArchive(row.original.productID, isGloballyArchived ? "restore" : "archive")}
                 >
                   {isGloballyArchived ? (
                     <>
@@ -169,7 +169,7 @@ export function getInventoryColumns(
               {/* ✅ Hard Delete (Only When Globally Archived) */}
               {role === "admin" && isGloballyArchived && (
                 <DropdownMenuItem
-                  onClick={() => onHardDelete(row.original.id)}
+                  onClick={() => onHardDelete(row.original.productID)}
                   className="text-red-600"
                 >
                   <Archive className="w-4 h-4 mr-2 text-red-600" />

@@ -27,7 +27,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
     handleDeleteProduct, // ✅ Ensure delete function is included
     handleStoreArchive, // ✅ Fix Store-Level Archive
     handleStoreRestore, // ✅ Fix Store-Level Restore
-
+     
     archivedFilter,
     setArchivedFilter,
     addInventory,
@@ -60,6 +60,7 @@ export default function InventoryTable({ role }: { role: "admin" | "manager" }) 
   const formattedInventory = inventory.map((item) => ({
     id: item.id,
     productName: item.product?.name ?? "Unnamed Product",
+    productID: item.product?.id,
     productSKU: item.product?.sku ?? "N/A",
     categoryName: item.product?.category?.name ?? "N/A",
     supplier: item.product?.supplier ?? null,
@@ -159,22 +160,20 @@ const handleGlobalConfirmAction = async () => {
 /**
  * ✅ Handle Permanent Deletion
  */
-const handleConfirmDelete = async () => {
-  if (!deleteProductId) return;
+const handleHardDelete = async (id: number) => {
   setDeleteLoading(true);
 
   try {
-    await handleDeleteProduct(deleteProductId);
+    await handleDeleteProduct(id); // ✅ Pass ID correctly
     refreshInventory(); // ✅ Refresh after deletion
-    toast.success("✅ Product permanently deleted.");
   } catch (error) {
     console.error("Error deleting product:", error);
-    toast.error("❌ Failed to delete product.");
   } finally {
     setDeleteProductId(null);
     setDeleteLoading(false);
   }
 };
+
 
   /**
    * ✅ Handle Add/Edit Submission
@@ -253,7 +252,8 @@ const handleConfirmDelete = async () => {
           (id, type) => setGlobalConfirmDialog({ id, type }), // ✅ Fix: Global Archive/Restore
     (id, type) => setConfirmDialog({ id, type }), // ✅ Fix: Store-Level Archive/Restore
           handleManageStock,
-          handleManageStoreDetails // ✅ Add this missing function
+          handleManageStoreDetails ,// ✅ Add this missing function
+          handleHardDelete 
         )}
         data={formattedInventory}
         searchKeys={["productName", "productSKU", "storeName", "categoryName", "supplierName"]}

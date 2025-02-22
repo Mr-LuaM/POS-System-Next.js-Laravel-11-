@@ -10,7 +10,7 @@ import {
   restoreStoreProduct,  // ✅ Store-level Restore
   addInventoryItem, 
   updateInventoryItem, 
-  InventoryProduct 
+  InventoryProduct ,searchProductBySkuOrBarcode 
 } from "@/services/inventory";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ export const useInventory = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isError, setIsError] = useState<boolean>(false);
   const [archivedFilter, setArchivedFilter] = useState<boolean | null>(null); // ✅ NULL = fetch all products
+  const [searchResult, setSearchResult] = useState<any | null>(null); // ✅ Store searched product
 
   const storeId = getSessionValue("storeId");
   const role = getSessionValue("role");
@@ -207,11 +208,37 @@ export const useInventory = () => {
       toast.error(`❌ Failed to delete product: ${error.message}`);
     }
   };
+/**
+   * ✅ Search Product by SKU or Barcode
+   */
+const searchProduct = async (query: string) => {
+  if (!query.trim()) {
+    toast.error("Enter a SKU or Barcode.");
+    return null;
+  }
 
+  setLoading(true);
+  try {
+    const result = await searchProductBySkuOrBarcode(query);
+    if (result) {
+      setSearchResult(result);
+    } else {
+      toast.error("Product not found.");
+      setSearchResult(null);
+    }
+    return result;
+  } catch (error) {
+    toast.error(error.message || "Error searching product.");
+    return null;
+  } finally {
+    setLoading(false);
+  }
+};
+  
   return {
     inventory,
     loading,
-    isError,
+    isError,fetchInventory,
     handleArchiveProduct,   // ✅ Global Archive (Admin)
     handleRestoreProduct,   // ✅ Global Restore (Admin)
     handleStoreArchive,     // ✅ Store-Level Archive (Admin & Manager)
@@ -222,5 +249,7 @@ export const useInventory = () => {
     refreshInventory: fetchInventory,
     archivedFilter,
     setArchivedFilter,
+    searchProduct,       // ✅ Search function (SKU / Barcode)
+    searchResult,  
   };
 };

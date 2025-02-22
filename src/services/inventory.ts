@@ -159,3 +159,19 @@ export const getLowStockProducts = async (storeId?: number): Promise<InventoryPr
     throw new Error(handleApiError(error));
   }
 };
+
+/** ✅ Fetch product by SKU or barcode */
+export async function searchProductBySkuOrBarcode(query: string, storeId?: number) {
+  if (!query.trim()) throw new Error("Query is required");
+
+  try {
+    const response = await axiosInstance.get(`/inventory/search`, { 
+      params: { query, store_id: storeId } // ✅ Pass storeId as optional parameter
+    });
+
+    return response.data.success ? response.data.data : null;
+  } catch (error: any) {
+    console.error("Error fetching product:", error);
+    throw new Error(error.response?.data?.message || "Failed to fetch product details");
+  }
+}
