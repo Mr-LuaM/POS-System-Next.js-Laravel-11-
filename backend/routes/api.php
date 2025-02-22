@@ -53,7 +53,7 @@ Route::middleware('auth:api')->group(function () {
 
         // ✅ Inventory Management (Admins See All, Store Managers Limited)
         Route::prefix('/inventory')->group(function () {
-            Route::get('/', [InventoryController::class, 'getAll']); // ✅ Fetch all inventory
+            // Route::get('/', [InventoryController::class, 'getAll']); // ✅ Fetch all inventory
             Route::post('/add', [InventoryController::class, 'addProduct']); // ✅ Add product
             Route::put('/update/{id}', [InventoryController::class, 'updateProduct']); // ✅ Update product
 
@@ -71,6 +71,7 @@ Route::middleware('auth:api')->group(function () {
 
             // ✅ Permanent Deletion (Admin Only)
             Route::delete('/delete/{id}', [InventoryController::class, 'deleteProduct']); // ✅ Hard delete
+
 
             // ✅ Store-Level Pricing & Threshold Management
             Route::put('/update-price/{storeProductId}', [InventoryController::class, 'updatePrice']);
@@ -105,14 +106,14 @@ Route::middleware('auth:api')->group(function () {
         });
 
         // ✅ Customers
-        Route::prefix('/customers')->group(function () {
-            Route::get('/', [CustomerController::class, 'getAllCustomers']);
-            Route::post('/add', [CustomerController::class, 'addCustomer']);
-            Route::put('/update/{id}', [CustomerController::class, 'updateCustomer']);
-            Route::delete('/archive/{id}', [CustomerController::class, 'archiveCustomer']); // ✅ Soft Delete
-            Route::put('/restore/{id}', [CustomerController::class, 'restoreCustomer']); // ✅ Restore
-            Route::delete('/delete/{id}', [CustomerController::class, 'deleteCustomer']); // ✅ Permanent Delete
-        });
+        // Route::prefix('/customers')->group(function () {
+        //     Route::get('/', [CustomerController::class, 'getAllCustomers']);
+        //     Route::post('/add', [CustomerController::class, 'addCustomer']);
+        //     Route::put('/update/{id}', [CustomerController::class, 'updateCustomer']);
+        //     Route::delete('/archive/{id}', [CustomerController::class, 'archiveCustomer']); // ✅ Soft Delete
+        //     Route::put('/restore/{id}', [CustomerController::class, 'restoreCustomer']); // ✅ Restore
+        //     Route::delete('/delete/{id}', [CustomerController::class, 'deleteCustomer']); // ✅ Permanent Delete
+        // });
 
 
         // ✅ Discounts
@@ -135,7 +136,7 @@ Route::middleware('auth:api')->group(function () {
         });
     });
 
-    Route::middleware('role:cashier,admin')->group(function () {
+    Route::middleware('role:cashier,admin,manager')->group(function () {
         Route::get('/cashier/dashboard', function () {
             return response()->json(['message' => 'Welcome Cashier!']);
         });
@@ -143,6 +144,8 @@ Route::middleware('auth:api')->group(function () {
         // ✅ Inventory (Cashier Only Sees Their Store’s Inventory)
         Route::prefix('/inventory')->group(function () {
             Route::get('/', [InventoryController::class, 'getAll']); // ✅ Restricted in controller
+            Route::get('/search', [InventoryController::class, 'searchBySkuOrBarcode']); // ✅ Fix API route
+
         });
 
         // ✅ Sales Management
@@ -164,6 +167,23 @@ Route::middleware('auth:api')->group(function () {
             Route::post('/open', [CashDrawerController::class, 'openDrawer']);
             Route::post('/close', [CashDrawerController::class, 'closeDrawer']);
         });
+        Route::prefix('/customers')->group(function () {
+            Route::get('/search', [CustomerController::class, 'searchByBarcode']); // ✅ Ensure this comes first!
+
+            Route::get('/', [CustomerController::class, 'index']); // ✅ Get all customers
+            Route::post('/add', [CustomerController::class, 'store']); // ✅ Register a new customer
+            Route::get('/{id}', [CustomerController::class, 'show']); // ✅ Get a single customer (AFTER search!)
+            Route::put('/update/{id}', [CustomerController::class, 'update']); // ✅ Update customer
+            Route::delete('/delete/{id}', [CustomerController::class, 'destroy']); // ✅ Soft delete customer
+            Route::put('/restore/{id}', [CustomerController::class, 'restore']); // ✅ Restore soft deleted customer
+            Route::delete('/force-delete/{id}', [CustomerController::class, 'forceDelete']); // ✅ Permanently delete customer
+        });
+
+        // ✅ Store Management
+        Route::prefix('/stores')->group(function () {
+            Route::get('/{id}', [StoreController::class, 'show']); // ✅ View a store
+
+        });
     });
 
     Route::middleware('role:manager,admin')->group(function () {
@@ -171,18 +191,13 @@ Route::middleware('auth:api')->group(function () {
             return response()->json(['message' => 'Welcome Manager!']);
         });
 
-        // ✅ Inventory (Managers See Their Store’s Inventory)
-        Route::prefix('/inventory')->group(function () {
-            Route::get('/', [InventoryController::class, 'getAll']); // ✅ Restricted in controller
-        });
+        // // ✅ Inventory (Managers See Their Store’s Inventory)
+        // Route::prefix('/inventory')->group(function () {
+        //     Route::get('/', [InventoryController::class, 'getAll']); // ✅ Restricted in controller
+        // });
 
         // ✅ Customer Management
-        Route::prefix('/customers')->group(function () {
-            Route::get('/', [CustomerController::class, 'getAllCustomers']);
-            Route::post('/add', [CustomerController::class, 'addCustomer']);
-            Route::put('/update/{id}', [CustomerController::class, 'updateCustomer']);
-            Route::delete('/delete/{id}', [CustomerController::class, 'deleteCustomer']);
-        });
+
 
         // ✅ Refunds
         Route::prefix('/refunds')->group(function () {

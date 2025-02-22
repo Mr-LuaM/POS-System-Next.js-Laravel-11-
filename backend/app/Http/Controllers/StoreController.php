@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Store;
 use Illuminate\Support\Facades\Validator;
 use App\Services\ResponseService; // ✅ Import ResponseService
+use Illuminate\Http\JsonResponse;
 
 class StoreController extends Controller
 {
@@ -33,6 +34,16 @@ class StoreController extends Controller
         }
     }
 
+    /**
+     * ✅ Fetch a single store by ID
+     */
+    public function show($id): JsonResponse
+    {
+        $store = Store::withTrashed()->find($id);
+        if (!$store) return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+
+        return response()->json(['success' => true, 'data' => $store]);
+    }
     /**
      * ✅ Add a New Store
      */

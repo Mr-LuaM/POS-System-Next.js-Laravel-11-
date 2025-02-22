@@ -449,4 +449,66 @@ class InventoryController extends Controller
 
         return ResponseService::success("Low stock threshold updated successfully", $storeProduct);
     }
+
+    public function searchBySkuOrBarcode(Request $request)
+    {
+        try {
+            $archived = $request->query('archived', 'all'); // Archived filter (default: 'all')
+            $storeId = $request->query('store_id'); // Store filter (optional)
+            $user = Auth::user(); // Get the authenticated user
+            $query = $request->query('query'); // SKU or Barcode query
+
+            if (!$query) {
+                return ResponseService::error('Search query is required');
+            }
+
+            // 🔹 Base Query: Fetch product details related to store products
+            $storeProductQuery = StoreProduct::with([
+                'product' => fn($query) => $query->withTrashed(), // Include soft-deleted products
+                'product.category',
+                'product.supplier' => fn($query) => $query->withTrashed(), // Include soft-deleted suppliers
+                'store'
+            ])
+                ->whereHas('product', function ($q) use ($query) {
+                    // Search by SKU or Barcode
+                    $q->where('sku', $query)->orWhere('barcode', $query);
+                });
+
+            // 🔹 Filter by Archived (Handle soft-deleted products)
+            if ($archived === 'true') {
+                // Fetch only archived (soft-deleted) products
+                $storeProductQuery->onlyTrashed();
+            } elseif ($archived === 'false') {
+                // Fetch only active (non-deleted) products
+                $storeProductQuery->whereNull('store_products.deleted_at')
+                    ->whereHas('product', fn($q) => $q->whereNull('deleted_at'));
+            } else {
+                // Fetch both active & archived products (default behavior)
+                $storeProductQuery->withTrashed();
+            }
+
+            // 🔹 Apply Store Filter (For non-admin users)
+            if ($user->role !== 'admin') {
+                // Admins can see all stores; other roles are limited to their own store
+                $storeProductQuery->where('store_id', $user->store_id);
+            }
+
+            // 🔹 Apply Additional Store ID Filter if Provided
+            if ($storeId) {
+                $storeProductQuery->where('store_id', $storeId);
+            }
+
+            // 🔹 Fetch First Matching Result (Only one product is expected for SKU or Barcode)
+            $storeProduct = $storeProductQuery->first();
+
+            if (!$storeProduct) {
+                return ResponseService::error('Product not found');
+            }
+
+            // ✅ Return Success with Product Details
+            return ResponseService::success('Product found', $storeProduct);
+        } catch (\Exception $e) {
+            return ResponseService::error('Failed to fetch product', $e->getMessage());
+        }
+    }
 }

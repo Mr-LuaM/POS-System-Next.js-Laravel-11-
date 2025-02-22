@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -42,5 +43,9 @@ class Product extends Model
     public function storeProducts()
     {
         return $this->hasMany(StoreProduct::class, 'product_id', 'id');
+    }
+    public function saleItems(): HasMany
+    {
+        return $this->hasMany(SaleItem::class, 'product_id', 'id');
     }
 }
