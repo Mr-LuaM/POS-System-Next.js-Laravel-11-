@@ -20,15 +20,25 @@ export default function PaymentModal({ isOpen, onClose, totalAmount, onCompleteP
 
   const handleCompletePayment = () => {
     if (amount === "" || amount <= 0) {
-      toast.error("Enter a valid payment amount.");
+      toast.error("❌ Enter a valid payment amount.");
       return;
     }
+
     if (method === "cash" && amount < totalAmount) {
       toast.error("❌ Insufficient cash received.");
       return;
     }
 
-    onCompletePayment([{ method, amount, change: change > 0 ? change : 0 }]);
+    const payments = [
+      {
+        method,
+        amount: parseFloat(amount.toString()), // ✅ Ensure correct numeric format
+        change: change > 0 ? parseFloat(change.toFixed(2)) : 0, // ✅ Fix decimal places
+      },
+    ];
+
+    console.log("✅ Payments Sent to onCompletePayment:", payments); // ✅ Debugging Log
+    onCompletePayment(payments); // ✅ Pass correct payments array
     onClose();
   };
 

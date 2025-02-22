@@ -220,6 +220,7 @@ const searchProduct = async (query: string) => {
   setLoading(true);
   try {
     const result = await searchProductBySkuOrBarcode(query);
+    console.log(result)
     if (result) {
       setSearchResult(result);
     } else {
