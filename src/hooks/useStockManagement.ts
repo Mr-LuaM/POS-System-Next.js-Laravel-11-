@@ -2,14 +2,22 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { manageStock, getLowStockProducts, updateProductPrice, updateLowStockThreshold } from "@/services/stock";
+import { 
+  manageStock, 
+  getLowStockProducts, 
+  updateProductPrice, 
+  updateLowStockThreshold, 
+  getStockMovements 
+} from "@/services/stock";
+import { StockMovement } from "@/services/stock";
 
 /**
  * ✅ Custom Hook for Managing Stock & Store-Level Details
  */
 export const useStockManagement = () => {
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const storeId = sessionStorage.getItem("storeId");
   const role = sessionStorage.getItem("role");
 
@@ -39,9 +47,28 @@ export const useStockManagement = () => {
     }
   }, []);
 
+  /**
+   * ✅ Fetch Stock Movements (Manual Refresh)
+   */
+  const fetchStockMovements = useCallback(async () => {
+    setLoading(true);
+    try {
+      const movements = await getStockMovements();
+      setStockMovements(movements);
+    } catch (error: any) {
+      toast.error(`❌ Failed to fetch stock movements: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * ✅ Load stock data **only on mount** (No auto-fetch after updates)
+   */
   useEffect(() => {
     fetchLowStockProducts();
-  }, [fetchLowStockProducts]);
+    fetchStockMovements();
+  }, [fetchLowStockProducts, fetchStockMovements]);
 
   /**
    * ✅ Update Stock (Managers & Admins Only)
@@ -59,7 +86,7 @@ export const useStockManagement = () => {
     try {
       await manageStock(storeProductId, stockData);
       toast.success(`✅ Stock ${stockData.type} successfully updated.`);
-      fetchLowStockProducts(); // ✅ Auto-refresh stock levels
+      fetchLowStockProducts(); // ✅ Still auto-refresh low-stock products
       return true;
     } catch (error: any) {
       toast.error(`❌ Failed to update stock: ${error.message}`);
@@ -104,10 +131,12 @@ export const useStockManagement = () => {
 
   return {
     updateStock,
-    updatePrice, // ✅ Now included
-    updateThreshold, // ✅ Now included
+    updatePrice,
+    updateThreshold,
     lowStockProducts,
-    refreshLowStockProducts: fetchLowStockProducts, // ✅ Exposed for manual refresh
+    refreshLowStockProducts: fetchLowStockProducts, 
+    stockMovements, // ✅ Exposing stock movements
+    refreshStockMovements: fetchStockMovements, // ✅ Manual refresh option
     loading,
   };
 };

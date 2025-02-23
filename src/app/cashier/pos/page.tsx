@@ -212,13 +212,13 @@ const processTransaction = async (payments: { method: string; amount: number; ch
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // ✅ Assume tax is 10% for now (you can replace this with actual tax logic)
-  const tax = subtotal * 0.10;
+  // const tax = subtotal * 0.10;
 
   // ✅ Assume discount is 0 for now (modify if needed)
   const discount = 0;
 
   // ✅ Calculate total
-  const totalAmount = subtotal + tax - discount;
+  const totalAmount = subtotal  - discount;
 
   // ✅ Ensure valid payment amount
   const cashReceived = payments.length > 0 ? payments[0].amount : 0;
@@ -252,7 +252,7 @@ const processTransaction = async (payments: { method: string; amount: number; ch
         date: new Date().toLocaleString(),
         items: cart, // ✅ Send cart items to the receipt
         subtotal,
-        tax,
+        // tax,
         discount,
         total: totalAmount,
         paid: cashReceived, // ✅ Show actual paid amount

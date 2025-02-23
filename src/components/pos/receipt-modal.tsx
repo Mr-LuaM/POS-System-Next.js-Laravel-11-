@@ -16,7 +16,7 @@ interface Transaction {
   date: string;
   items?: TransactionItem[];
   subtotal: number;
-  tax: number;
+  // tax: number;
   discount: number;
   total: number;
   paid: number;
@@ -87,10 +87,7 @@ export default function ReceiptModal({ isOpen, onClose, transaction }: ReceiptMo
                   <span>Subtotal:</span>
                   <span>₱${Number(transaction?.subtotal || 0).toFixed(2)}</span>
                 </div>
-                <div class="item-row">
-                  <span>Tax:</span>
-                  <span>₱${Number(transaction?.tax || 0).toFixed(2)}</span>
-                </div>
+              
                 <div class="item-row">
                   <span>Discount:</span>
                   <span>-₱${Number(transaction?.discount || 0).toFixed(2)}</span>
@@ -160,10 +157,10 @@ export default function ReceiptModal({ isOpen, onClose, transaction }: ReceiptMo
             <span>Subtotal:</span>
             <span>₱{Number(transaction?.subtotal || 0).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between">
+          {/* <div className="flex justify-between">
             <span>Tax:</span>
             <span>₱{Number(transaction?.tax || 0).toFixed(2)}</span>
-          </div>
+          </div> */}
           <div className="flex justify-between">
             <span>Discount:</span>
             <span>-₱{Number(transaction?.discount || 0).toFixed(2)}</span>

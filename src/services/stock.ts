@@ -2,6 +2,32 @@ import { axiosInstance, handleApiError } from "@/lib/apiService";
 import { InventoryProduct } from "./inventory";
 
 /**
+ * ✅ Define Stock Movement Type
+ */
+export type StockMovement = {
+  id: number;
+  product_id: number;
+  type: "restock" | "sale" | "adjustment";
+  quantity: number;
+  reason: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+};
+
+/**
+ * ✅ Fetch Stock Movements (NEW FUNCTION)
+ */
+export const getStockMovements = async (): Promise<StockMovement[]> => {
+  try {
+    const response = await axiosInstance.get("/inventory/stock-movements");
+    return response.data.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+};
+
+/**
  * ✅ Manage Stock (Restock, Adjustment)
  */
 export const manageStock = async (
