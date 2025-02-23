@@ -89,11 +89,11 @@ class InventoryController extends Controller
             'sku' => 'required|string|max:255|unique:products,sku',
             'barcode' => 'nullable|string|max:255|unique:products,barcode',
             'qr_code' => 'nullable|string|max:255|unique:products,qr_code',
-            'category_id' => 'nullable|exists:categories,id',
+            'category_id' => 'nullable|string', // Can be "other" or an existing category ID
             'new_category' => 'nullable|string|max:255',
-            'supplier_id' => 'nullable|exists:suppliers,id',
+            'supplier_id' => 'nullable|string', // Can be "other" or an existing supplier ID
             'new_supplier' => 'nullable|string|max:255',
-            'stores' => 'required|array',
+            'stores' => 'required|array|min:1',
             'stores.*.store_id' => 'required|exists:stores,id',
             'stores.*.price' => 'required|numeric|min:0',
             'stores.*.stock_quantity' => 'required|integer|min:0',
@@ -105,20 +105,31 @@ class InventoryController extends Controller
         }
 
         try {
-            // 🔹 Handle "Other" Category
+            DB::beginTransaction();
+
+            // ✅ Handle "Other" Category (Create new category if needed)
             if ($request->category_id === 'other' && !empty($request->new_category)) {
                 $category = Category::create(['name' => $request->new_category]);
-                $request->merge(['category_id' => $category->id]);
+                $request->merge(['category_id' => $category->id]); // Assign new category ID
             }
 
-            // 🔹 Handle "Other" Supplier
+            // ✅ Handle "Other" Supplier (Create new supplier if needed)
             if ($request->supplier_id === 'other' && !empty($request->new_supplier)) {
                 $supplier = Supplier::create(['name' => $request->new_supplier]);
-                $request->merge(['supplier_id' => $supplier->id]);
+                $request->merge(['supplier_id' => $supplier->id]); // Assign new supplier ID
             }
 
-            $product = Product::create($request->only(['name', 'sku', 'barcode', 'qr_code', 'category_id', 'supplier_id']));
+            // ✅ Create the Product
+            $product = Product::create($request->only([
+                'name',
+                'sku',
+                'barcode',
+                'qr_code',
+                'category_id',
+                'supplier_id'
+            ]));
 
+            // ✅ Attach product to selected stores
             foreach ($request->stores as $store) {
                 StoreProduct::create([
                     'product_id' => $product->id,
@@ -129,11 +140,15 @@ class InventoryController extends Controller
                 ]);
             }
 
-            return ResponseService::success('Product added successfully', $product->load('stores'));
+            DB::commit();
+
+            return ResponseService::success('✅ Product added successfully', $product->load('stores'));
         } catch (\Exception $e) {
-            return ResponseService::error('Failed to add product', $e->getMessage());
+            DB::rollBack();
+            return ResponseService::error('❌ Failed to add product', $e->getMessage());
         }
     }
+
 
     /**
      * ✅ Update a product (Admin Only)
@@ -257,7 +272,7 @@ class InventoryController extends Controller
 
             // ✅ Record stock movement
             StockMovement::create([
-                'product_id' => $storeProduct->product_id,
+                'store_product_id' => $storeProduct->id,  // ✅ Correct - uses `store_product_id`
                 'store_id' => $storeProduct->store_id,
                 'type' => $request->type,
                 'quantity' => $request->quantity,
@@ -364,21 +379,35 @@ class InventoryController extends Controller
         try {
             $store_id = $request->query('store_id');
 
-            $query = StoreProduct::with(['product'])
+            // 🔹 Fetch store products where stock is below threshold
+            $query = StoreProduct::with(['product' => function ($q) {
+                $q->select('id', 'name', 'sku', 'barcode', 'deleted_at')
+                    ->withTrashed(); // ✅ Include archived products for better visibility
+            }])
                 ->whereColumn('stock_quantity', '<', 'low_stock_threshold');
 
-            if ($store_id) {
+            // 🔹 Filter by store if provided
+            if (!empty($store_id)) {
                 $query->where('store_id', $store_id);
             }
 
+            // 🔹 Ensure product isn't deleted globally (optional)
+            $query->whereHas('product', function ($q) {
+                $q->whereNull('deleted_at'); // ✅ Ensure the product is not globally archived
+            });
+
+            // ✅ Fetch low-stock products
+            $lowStockProducts = $query->get();
+
             return ResponseService::success(
-                'Low-stock products fetched successfully',
-                $query->get()
+                '✅ Low-stock products fetched successfully',
+                $lowStockProducts
             );
         } catch (\Exception $e) {
-            return ResponseService::error('Failed to fetch low-stock products', $e->getMessage());
+            return ResponseService::error('❌ Failed to fetch low-stock products', $e->getMessage());
         }
     }
+
 
     /**
      * ✅ Restore an archived product for a specific store
@@ -508,6 +537,44 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             \Log::error("❌ Error in searchBySkuOrBarcode: " . $e->getMessage());
             return ResponseService::error('❌ Failed to fetch product', $e->getMessage());
+        }
+    }
+
+    public function getStockMovements(Request $request)
+    {
+        try {
+            $storeId = $request->query('store_id');
+
+            $query = StockMovement::with(['storeProduct.product', 'storeProduct.store']);
+
+            // 🔹 Apply Store Filter (Optional)
+            if ($storeId) {
+                $query->whereHas('storeProduct', function ($q) use ($storeId) {
+                    $q->where('store_id', $storeId);
+                });
+            }
+
+            $movements = $query->orderByDesc('created_at')->get();
+
+            // ✅ Transform response to include product & store names
+            $formattedMovements = $movements->map(function ($movement) {
+                return [
+                    'id' => $movement->id,
+                    'type' => $movement->type,
+                    'quantity' => $movement->quantity,
+                    'reason' => $movement->reason,
+                    'created_at' => $movement->created_at,
+                    'updated_at' => $movement->updated_at,
+                    'deleted_at' => $movement->deleted_at,
+                    'store_product_id' => $movement->store_product_id,
+                    'product_name' => $movement->storeProduct->product->name ?? 'Unknown Product',
+                    'store_name' => $movement->storeProduct->store->name ?? 'Unknown Store',
+                ];
+            });
+
+            return ResponseService::success('Stock movements fetched successfully', $formattedMovements);
+        } catch (\Exception $e) {
+            return ResponseService::error('Failed to fetch stock movements', $e->getMessage());
         }
     }
 }

@@ -20,20 +20,18 @@ class TransactionController extends Controller
 {
     public function completeTransaction(Request $request)
     {
-        // ✅ Log request data for debugging
         \Log::info("🔍 Incoming Transaction Request: ", $request->all());
 
-        // ✅ Validate request with correct structure
         $request->validate([
             'cashier_id' => 'required|exists:users,id',
             'store_id' => 'required|exists:stores,id',
             'customer_id' => 'nullable|exists:customers,id',
-            'payment_methods' => 'required|array|min:1', // ✅ Ensures at least one payment method
+            'payment_methods' => 'required|array|min:1',
             'payment_methods.*.method' => 'required|string|in:cash,credit_card,digital_wallet',
             'payment_methods.*.amount' => 'required|numeric|min:0',
             'payment_methods.*.change' => 'required|numeric|min:0',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id', // ✅ Ensures product exists
+            'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'discount_code' => 'nullable|string|exists:discounts,code',
@@ -42,21 +40,7 @@ class TransactionController extends Controller
         try {
             DB::beginTransaction();
 
-            // ✅ Validate product-store relationship
-            foreach ($request->items as $item) {
-                $storeProduct = StoreProduct::where('product_id', $item['product_id'])
-                    ->where('store_id', $request->store_id)
-                    ->first();
-
-                if (!$storeProduct) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "❌ Product ID {$item['product_id']} is not available in store {$request->store_id}.",
-                    ], 400);
-                }
-            }
-
-            // ✅ Auto-fetch Cash Drawer ID from Employee Shift
+            // ✅ Auto-fetch Cash Drawer ID
             $cashDrawerId = EmployeeShift::where('user_id', $request->cashier_id)
                 ->where('store_id', $request->store_id)
                 ->whereNull('clock_out')
@@ -86,7 +70,6 @@ class TransactionController extends Controller
 
             // ✅ Ensure payment methods cover total amount
             $totalPaid = collect($request->payment_methods)->sum('amount');
-
             if ($totalPaid < $totalAmount) {
                 return response()->json([
                     'success' => false,
@@ -104,8 +87,21 @@ class TransactionController extends Controller
                 'cash_drawer_id' => $cashDrawerId,
             ]);
 
-            // ✅ Step 2: Record Sale Items & Deduct Inventory
+            // ✅ Step 2: Process Each Item
             foreach ($request->items as $item) {
+                // 🔹 **Automatically Fetch `store_product_id`**
+                $storeProduct = StoreProduct::where('product_id', $item['product_id'])
+                    ->where('store_id', $request->store_id)
+                    ->first();
+
+                if (!$storeProduct) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "❌ Product ID {$item['product_id']} is not available in store {$request->store_id}.",
+                    ], 400);
+                }
+
+                // 🔹 Record Sale Item
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
@@ -113,18 +109,16 @@ class TransactionController extends Controller
                     'subtotal' => $item['price'] * $item['quantity'],
                 ]);
 
-                // Deduct Stock & Track Movement
+                // 🔹 Deduct Stock & Track Movement
                 StockMovement::create([
-                    'product_id' => $item['product_id'],
+                    'store_product_id' => $storeProduct->id, // ✅ Auto-fetched
                     'type' => 'sale',
                     'quantity' => -$item['quantity'],
                     'reason' => "Sold in sale #{$sale->id}",
                 ]);
 
-                // Update Store Product Stock
-                StoreProduct::where('product_id', $item['product_id'])
-                    ->where('store_id', $request->store_id)
-                    ->decrement('stock_quantity', $item['quantity']);
+                // 🔹 Update Store Product Stock
+                $storeProduct->decrement('stock_quantity', $item['quantity']);
             }
 
             // ✅ Step 3: Record Payments

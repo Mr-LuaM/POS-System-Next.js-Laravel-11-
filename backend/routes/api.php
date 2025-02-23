@@ -186,6 +186,7 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/{id}', [StoreController::class, 'show']); // ✅ View a store
 
         });
+        Route::get('/discounts/code/{code}', [DiscountController::class, 'getDiscountByCode']);
     });
 
     Route::middleware('role:manager,admin')->group(function () {
@@ -200,7 +201,14 @@ Route::middleware('auth:api')->group(function () {
 
         // ✅ Customer Management
 
-
+        Route::prefix('/discounts')->middleware('role:admin')->group(function () {
+            Route::get('/', [DiscountController::class, 'getAll']);
+            Route::post('/add', [DiscountController::class, 'addDiscount']);
+            Route::put('/update/{id}', [DiscountController::class, 'updateDiscount']);
+            Route::delete('/archive/{id}', [DiscountController::class, 'archiveDiscount']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [DiscountController::class, 'restoreDiscount']); // ✅ Restore
+            Route::delete('/delete/{id}', [DiscountController::class, 'deleteDiscount']); // ✅ Hard Delete
+        });
         // ✅ Refunds
         Route::prefix('/refunds')->group(function () {
             Route::get('/', [RefundController::class, 'getAll']);
@@ -211,5 +219,8 @@ Route::middleware('auth:api')->group(function () {
         Route::prefix('/reports')->group(function () {
             Route::get('/customer-sales', [ReportController::class, 'customerSalesReport']);
         });
+        Route::get('/inventory/stock-movements', [InventoryController::class, 'getStockMovements']);
+        Route::get('/sales/{sale}/items', [SalesController::class, 'getSaleItems']); // ✅ Fetch sale items
+        Route::post('/sales/{saleId}/refund', [RefundController::class, 'processRefund']);
     });
 });
