@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Customer;
+use App\Models\LoyaltyPoint;
+use App\Services\ResponseService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -247,5 +249,81 @@ class CustomerController extends Controller
             'success' => true,
             'data' => $customer,
         ]);
+    }
+    public function getCustomersWithLoyaltyPoints()
+    {
+        try {
+            // ✅ Fetch customers with their loyalty points (joins `customers` and `loyalty_points`)
+            $customers = Customer::leftJoin('loyalty_points', 'customers.id', '=', 'loyalty_points.customer_id')
+                ->select(
+                    'customers.id',
+                    'customers.name',
+                    'customers.email',
+                    'customers.phone',
+                    'customers.barcode',
+                    'customers.qr_code',
+                    DB::raw('COALESCE(SUM(loyalty_points.points), 0) as total_points')
+                )
+                ->groupBy('customers.id', 'customers.name', 'customers.email', 'customers.phone', 'customers.barcode', 'customers.qr_code')
+                ->get();
+
+            return ResponseService::success("Customers with loyalty points retrieved successfully", $customers);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching customers with loyalty points:', ['error' => $e->getMessage()]);
+            return ResponseService::error("Failed to fetch customers", $e->getMessage());
+        }
+    }
+    public function claimLoyaltyPoints(Request $request)
+    {
+        try {
+            // ✅ Validate Input
+            $request->validate([
+                'customer_id' => 'required|exists:customers,id',
+                'points_to_claim' => 'required|integer|min:1',
+            ]);
+
+            $customerId = $request->customer_id;
+            $pointsToClaim = $request->points_to_claim;
+
+            // ✅ Get Customer's Total Loyalty Points
+            $totalPoints = LoyaltyPoint::where('customer_id', $customerId)->sum('points');
+
+            // ✅ Check if Customer Has Enough Points
+            if ($totalPoints < $pointsToClaim) {
+                return ResponseService::error("Insufficient loyalty points. Customer only has $totalPoints points.");
+            }
+
+            // ✅ Deduct Points (FIFO - Oldest First)
+            $remainingPointsToDeduct = $pointsToClaim;
+            $loyaltyRecords = LoyaltyPoint::where('customer_id', $customerId)
+                ->orderBy('created_at', 'asc') // Oldest first
+                ->get();
+
+            foreach ($loyaltyRecords as $record) {
+                if ($remainingPointsToDeduct <= 0) {
+                    break;
+                }
+
+                if ($record->points <= $remainingPointsToDeduct) {
+                    // Remove entire record
+                    $remainingPointsToDeduct -= $record->points;
+                    $record->delete();
+                } else {
+                    // Partially deduct points from the record
+                    $record->points -= $remainingPointsToDeduct;
+                    $record->save();
+                    $remainingPointsToDeduct = 0;
+                }
+            }
+
+            return ResponseService::success("Loyalty points successfully claimed.", [
+                'customer_id' => $customerId,
+                'claimed_points' => $pointsToClaim,
+                'remaining_points' => LoyaltyPoint::where('customer_id', $customerId)->sum('points'),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error claiming loyalty points:', ['error' => $e->getMessage()]);
+            return ResponseService::error("Failed to claim loyalty points", $e->getMessage());
+        }
     }
 }

@@ -577,4 +577,40 @@ class InventoryController extends Controller
             return ResponseService::error('Failed to fetch stock movements', $e->getMessage());
         }
     }
+    public function quickAddProduct(Request $request)
+    {
+        try {
+            // ✅ Validate Request
+            $request->validate([
+                'barcode' => 'required|string',
+                'store_id' => 'required|exists:stores,id',
+            ]);
+
+            $barcode = $request->barcode;
+            $storeId = $request->store_id;
+
+            // ✅ Check if product exists
+            $product = Product::where('barcode', $barcode)->first();
+
+            if (!$product) {
+                return ResponseService::error("Product not found with barcode: $barcode");
+            }
+
+            // ✅ Add to store inventory (or update stock)
+            $storeProduct = StoreProduct::firstOrNew([
+                'store_id' => $storeId,
+                'product_id' => $product->id,
+            ]);
+
+            $storeProduct->stock_quantity = $storeProduct->stock_quantity + 1; // Increment stock
+            $storeProduct->save();
+
+            return ResponseService::success("Product added to inventory!", [
+                'product_name' => $product->name,
+                'stock' => $storeProduct->stock_quantity,
+            ]);
+        } catch (\Exception $e) {
+            return ResponseService::error("Failed to add product", $e->getMessage());
+        }
+    }
 }

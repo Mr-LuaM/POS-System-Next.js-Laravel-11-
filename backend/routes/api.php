@@ -79,15 +79,7 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/update-threshold/{storeProductId}', [InventoryController::class, 'updateThreshold']);
         });
 
-        // ✅ Store Management
-        Route::prefix('/stores')->group(function () {
-            Route::get('/', [StoreController::class, 'getAll']);
-            Route::post('/create', [StoreController::class, 'addStore']);
-            Route::put('/update/{id}', [StoreController::class, 'updateStore']);
-            Route::delete('/archive/{id}', [StoreController::class, 'archiveStore']);
-            Route::put('/restore/{id}', [StoreController::class, 'restoreStore']);
-            Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']);
-        });
+
 
         // ✅ Reports
         Route::prefix('/reports')->group(function () {
@@ -95,15 +87,6 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/inventory', [ReportController::class, 'inventoryReport']);
             Route::get('/customers', [ReportController::class, 'customerReport']);
             Route::get('/expenses', [ReportController::class, 'expenseReport']);
-        });
-        // ✅ Suppliers
-        Route::prefix('/suppliers')->group(function () {
-            Route::get('/', [SupplierController::class, 'getAll']);
-            Route::post('/add', [SupplierController::class, 'addSupplier']);
-            Route::put('/update/{id}', [SupplierController::class, 'updateSupplier']);
-            Route::delete('/archive/{id}', [SupplierController::class, 'archiveSupplier']); // ✅ Soft Delete
-            Route::put('/restore/{id}', [SupplierController::class, 'restoreSupplier']); // ✅ Restore
-            Route::delete('/delete/{id}', [SupplierController::class, 'deleteSupplier']); // ✅ Permanent Delete
         });
 
         // ✅ Customers
@@ -125,15 +108,6 @@ Route::middleware('auth:api')->group(function () {
             Route::delete('/archive/{id}', [DiscountController::class, 'archiveDiscount']); // ✅ Soft Delete
             Route::put('/restore/{id}', [DiscountController::class, 'restoreDiscount']); // ✅ Restore
             Route::delete('/delete/{id}', [DiscountController::class, 'deleteDiscount']); // ✅ Permanent Delete
-        });
-
-        // ✅ Expenses
-        Route::prefix('/expenses')->group(function () {
-            Route::get('/', [ExpenseController::class, 'getAll']);
-            Route::post('/add', [ExpenseController::class, 'addExpense']);
-            Route::delete('/archive/{id}', [ExpenseController::class, 'archiveExpense']); // ✅ Soft Delete
-            Route::put('/restore/{id}', [ExpenseController::class, 'restoreExpense']); // ✅ Restore
-            Route::delete('/delete/{id}', [ExpenseController::class, 'deleteExpense']); // ✅ Permanent Delete
         });
     });
 
@@ -180,13 +154,32 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/restore/{id}', [CustomerController::class, 'restore']); // ✅ Restore soft deleted customer
             Route::delete('/force-delete/{id}', [CustomerController::class, 'forceDelete']); // ✅ Permanently delete customer
         });
-
+        Route::get('/customers-with-loyalty', [CustomerController::class, 'getCustomersWithLoyaltyPoints']);
+        Route::post('/claim-loyalty', [CustomerController::class, 'claimLoyaltyPoints']);
         // ✅ Store Management
         Route::prefix('/stores')->group(function () {
             Route::get('/{id}', [StoreController::class, 'show']); // ✅ View a store
 
         });
         Route::get('/discounts/code/{code}', [DiscountController::class, 'getDiscountByCode']);
+        // ✅ Store Management
+        Route::prefix('/stores')->group(function () {
+            Route::get('/', [StoreController::class, 'getAll']);
+            Route::post('/create', [StoreController::class, 'addStore']);
+            Route::put('/update/{id}', [StoreController::class, 'updateStore']);
+            Route::delete('/archive/{id}', [StoreController::class, 'archiveStore']);
+            Route::put('/restore/{id}', [StoreController::class, 'restoreStore']);
+            Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']);
+        });
+        // ✅ Suppliers
+        Route::prefix('/suppliers')->group(function () {
+            Route::get('/', [SupplierController::class, 'getAll']);
+            Route::post('/add', [SupplierController::class, 'addSupplier']);
+            Route::put('/update/{id}', [SupplierController::class, 'updateSupplier']);
+            Route::delete('/archive/{id}', [SupplierController::class, 'archiveSupplier']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [SupplierController::class, 'restoreSupplier']); // ✅ Restore
+            Route::delete('/delete/{id}', [SupplierController::class, 'deleteSupplier']); // ✅ Permanent Delete
+        });
     });
 
     Route::middleware('role:manager,admin')->group(function () {
@@ -198,7 +191,16 @@ Route::middleware('auth:api')->group(function () {
         // Route::prefix('/inventory')->group(function () {
         //     Route::get('/', [InventoryController::class, 'getAll']); // ✅ Restricted in controller
         // });
+        // ✅ Expenses
+        Route::prefix('/expenses')->group(function () {
+            Route::get('/', [ExpenseController::class, 'index']);
+            Route::post('/add', [ExpenseController::class, 'store']);
+            Route::put('/{id}', [ExpenseController::class, 'update']); // ✅ Soft Delete
 
+            Route::delete('/archive/{id}', [ExpenseController::class, 'archiveExpense']); // ✅ Soft Delete
+            Route::put('/restore/{id}', [ExpenseController::class, 'restoreExpense']); // ✅ Restore
+            Route::delete('/delete/{id}', [ExpenseController::class, 'deleteExpense']); // ✅ Permanent Delete
+        });
         // ✅ Customer Management
 
         Route::prefix('/discounts')->middleware('role:admin')->group(function () {
@@ -222,5 +224,9 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/inventory/stock-movements', [InventoryController::class, 'getStockMovements']);
         Route::get('/sales/{sale}/items', [SalesController::class, 'getSaleItems']); // ✅ Fetch sale items
         Route::post('/sales/{saleId}/refund', [RefundController::class, 'processRefund']);
+
+        Route::get('/analytics-report', [ReportController::class, 'analyticsReport']);
+        Route::get('/dashboard', [ReportController::class, 'dashboard']);
+        Route::post('/inventory/quick-add', [InventoryController::class, 'quickAddProduct']);
     });
 });
