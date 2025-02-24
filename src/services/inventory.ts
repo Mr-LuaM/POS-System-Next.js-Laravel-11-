@@ -175,3 +175,17 @@ export async function searchProductBySkuOrBarcode(query: string, storeId?: numbe
     throw new Error(error.response?.data?.message || "Failed to fetch product details");
   }
 }
+
+export const addProductByBarcode = async (barcode: string, storeId: string) => {
+  try {
+    
+    const response = await axiosInstance.post("/inventory/quick-add", {
+      barcode,
+      store_id: storeId,
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+    throw error;
+  }
+};

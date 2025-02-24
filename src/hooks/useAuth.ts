@@ -57,7 +57,7 @@ export function useAuth() {
             router.replace("/admin");
             break;
           case "cashier":
-            router.replace("/cashier");
+            router.replace("/cashier/pos");
             break;
           case "manager":
             router.replace("/manager");
