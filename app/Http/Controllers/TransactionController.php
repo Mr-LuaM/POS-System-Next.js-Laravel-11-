@@ -49,7 +49,7 @@ class TransactionController extends Controller
             if (!$cashDrawerId) {
                 return response()->json([
                     'success' => false,
-                    'message' => '❌ No active cash drawer found for this cashier. Please start a shift first.',
+                    'message' => '❌ No active cash drawer found for this cashier. Please start a shift first. ' . $request->cashier_id,
                 ], 400);
             }
 
@@ -131,8 +131,8 @@ class TransactionController extends Controller
                 ]);
             }
 
-            // ✅ Step 4: Update Cash Drawer Balance
-            CashDrawer::where('id', $cashDrawerId)->increment('closing_balance', $totalAmount);
+            // // ✅ Step 4: Update Cash Drawer Balance
+            // CashDrawer::where('id', $cashDrawerId)->increment('closing_balance', $totalAmount);
 
             // ✅ Step 5: Loyalty Points (if customer exists)
             if ($request->customer_id) {
