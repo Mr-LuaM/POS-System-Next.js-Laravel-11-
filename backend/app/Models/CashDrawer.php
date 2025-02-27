@@ -9,7 +9,12 @@ class CashDrawer extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['store_id', 'opening_balance', 'closing_balance'];
+    protected $fillable = [
+        'store_id',
+        'opening_balance',
+        'closing_balance',
+        'actual_cash_collected',
+    ];
 
     public function store()
     {

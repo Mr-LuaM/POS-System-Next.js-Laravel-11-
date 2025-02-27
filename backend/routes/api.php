@@ -60,7 +60,6 @@ Route::middleware('auth:api')->group(function () {
 
             // ✅ Stock Management
             Route::put('/manage-stock/{storeProductId}', [InventoryController::class, 'manageStock']); // ✅ Update stock (Restock, Sale, Damage, etc.)
-            Route::get('/low-stock', [InventoryController::class, 'getLowStockProducts']); // ✅ Fetch low-stock alerts
 
             // ✅ Store-Level Archive/Restore
             Route::put('/store-archive/{id}', [InventoryController::class, 'storeArchiveProduct']); // ✅ Archive in Store
@@ -171,6 +170,13 @@ Route::middleware('auth:api')->group(function () {
             Route::put('/restore/{id}', [StoreController::class, 'restoreStore']);
             Route::delete('/delete/{id}', [StoreController::class, 'deleteStore']);
         });
+        Route::get('/store/{store_id}/cash-drawers', [CashDrawerController::class, 'getAllCashDrawers']);
+        Route::post('/store/cash-drawer/{cashDrawerId}/update-actual-cash', [CashDrawerController::class, 'updateActualCash']);
+
+        Route::get('/store/{store_id}/cash-status', [CashDrawerController::class, 'checkCashVariance']);
+        Route::post('/store/cash-drawer/{id}/update-closing-balance', [CashDrawerController::class, 'updateClosingBalance']);
+
+        Route::get('/store/{store_id}/daily-cash-summary', [CashDrawerController::class, 'getDailyCashSummary']);
         // ✅ Suppliers
         Route::prefix('/suppliers')->group(function () {
             Route::get('/', [SupplierController::class, 'getAll']);
@@ -222,6 +228,8 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/customer-sales', [ReportController::class, 'customerSalesReport']);
         });
         Route::get('/inventory/stock-movements', [InventoryController::class, 'getStockMovements']);
+        Route::get('/inventory/low-stock', [InventoryController::class, 'getLowStockProducts']); // ✅ Fetch low-stock alerts
+
         Route::get('/sales/{sale}/items', [SalesController::class, 'getSaleItems']); // ✅ Fetch sale items
         Route::post('/sales/{saleId}/refund', [RefundController::class, 'processRefund']);
 

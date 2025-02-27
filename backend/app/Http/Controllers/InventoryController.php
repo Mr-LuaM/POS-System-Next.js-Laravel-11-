@@ -613,4 +613,32 @@ class InventoryController extends Controller
             return ResponseService::error("Failed to add product", $e->getMessage());
         }
     }
+    /**
+     * ✅ Fetch products that are low in stock
+     */
+    public function getLowStockProducts()
+    {
+        // ✅ Fetch products where stock is below or equal to the threshold
+        $lowStockProducts = StoreProduct::whereColumn('stock_quantity', '<=', 'low_stock_threshold')
+            ->join('products', 'store_products.product_id', '=', 'products.id') // ✅ Join for product details
+            ->select(
+                'store_products.id as store_product_id',
+                'store_products.store_id',
+                'store_products.product_id',
+                'store_products.stock_quantity',
+                'store_products.low_stock_threshold',
+                'store_products.price',
+                'products.name as product_name',
+                'products.sku',
+                'products.barcode',
+                'products.qr_code'
+            )
+            ->orderBy('store_products.stock_quantity', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'low_stock_products' => $lowStockProducts,
+        ]);
+    }
 }
