@@ -84,6 +84,8 @@ const roleMenus = {
         { name: "Refund Requests", href: "/manager/refunds", icon: RefreshCcw, shortcut: "⌘⇧F" },
         { name: "Expenses", href: "/manager/expenses", icon: BarChart2, shortcut: "⌘E" },
         { name: "Quick Add", href: "/manager/inventory/quick-add", icon: Package, shortcut: "⌘F" },
+        { name: "Cash Drawer", href: "/manager/cash-drawer", icon: Package, shortcut: "⌘F" },
+
       ],
     },
   ],

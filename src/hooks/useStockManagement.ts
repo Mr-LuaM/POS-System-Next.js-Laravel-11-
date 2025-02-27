@@ -40,6 +40,7 @@ export const useStockManagement = () => {
     try {
       const products = await getLowStockProducts();
       setLowStockProducts(products);
+      
     } catch (error: any) {
       toast.error(`❌ Failed to fetch low-stock alerts: ${error.message}`);
     } finally {

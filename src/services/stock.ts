@@ -54,7 +54,7 @@ export const getLowStockProducts = async (): Promise<InventoryProduct[]> => {
     if (!storeId) return [];
 
     const response = await axiosInstance.get(`/inventory/low-stock`, { params: { store_id: storeId } });
-    return response.data.data;
+    return response.data.low_stock_products;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
