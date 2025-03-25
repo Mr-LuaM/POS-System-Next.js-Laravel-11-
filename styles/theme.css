@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    /* ✅ Light Mode (POS-Friendly) */
+    --background: 225 25% 98%; /* Soft Grayish White */
+    --foreground: 240 10% 10%; /* Dark Gray for readability */
+    --card: 0 0% 100%; /* Pure white for contrast */
+    --card-foreground: 240 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+    --primary: 156 70% 40%; /* POS Green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 100% 55%; /* POS Gold */
+    --secondary-foreground: 0 0% 10%;
+    --muted: 240 5% 90%;
+    --muted-foreground: 240 6% 30%;
+    --accent: 156 85% 35%; /* Darker Green */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 85%;
+    --input: 240 5% 90%;
+    --ring: 156 70% 40%;
+    
+    /* ✅ Updated Chart Colors */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* ✅ Dark Mode (POS-Friendly) */
+    --background: 225 15% 15%; /* Deep Gray-Blue */
+    --foreground: 0 0% 95%; /* Light Gray */
+    --card: 225 18% 20%; /* Soft Dark Gray */
+    --card-foreground: 0 0% 95%;
+    --popover: 225 18% 20%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 42 100% 55%; /* POS Gold */
+    --primary-foreground: 0 0% 10%;
+    --secondary: 156 70% 40%; /* POS Green */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 225 18% 25%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 42 90% 50%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 225 15% 30%;
+    --input: 225 15% 25%;
+    --ring: 42 100% 55%;
+    
+    /* ✅ Updated Dark Mode Chart Colors */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
