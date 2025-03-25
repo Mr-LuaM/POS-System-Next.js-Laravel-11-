@@ -11,22 +11,30 @@ use App\Services\ResponseService; // ✅ Import ResponseService
 
 class UserController extends Controller
 {
-    /**
-     * ✅ Fetch all users (Active & Archived based on Query Parameter)
-     */
     public function getAllUsers(Request $request)
     {
         try {
             $archived = $request->query('archived', 'all');
 
-            $query = User::select('id', 'name', 'email', 'role', 'created_at', 'deleted_at');
+            $query = User::query()
+                ->leftJoin('stores', 'users.store_id', '=', 'stores.id')
+                ->select(
+                    'users.id',
+                    'users.name',
+                    'users.email',
+                    'users.role',
+                    'users.created_at',
+                    'users.deleted_at',
+                    'users.store_id',
+                    'stores.name as store_name' // ✅ Add store name
+                );
 
             if ($archived === 'true') {
-                $query = $query->onlyTrashed();
+                $query->onlyTrashed();
             } elseif ($archived === 'false') {
-                $query = $query->whereNull('deleted_at');
+                $query->whereNull('users.deleted_at');
             } else {
-                $query = $query->withTrashed();
+                $query->withTrashed();
             }
 
             return ResponseService::success('Users fetched successfully', $query->get());
@@ -35,31 +43,42 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * ✅ Create a new user
-     */
+
+
     public function createUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'role' => 'required|in:admin,cashier,manager',
-            'store_id' => 'nullable|exists:stores,id', // ✅ Ensure store_id is valid
-
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|string|email|max:255|unique:users',
+            'password'  => 'required|string|min:6',
+            'role'      => 'required|in:admin,cashier,manager',
+            'store_id'  => 'nullable|exists:stores,id',
         ]);
 
         if ($validator->fails()) {
-            return ResponseService::validationError($validator->errors()); // ✅ Matches frontend expected format
+            return ResponseService::validationError($validator->errors());
+        }
+
+        // ✅ Additional business logic validation
+        if ($request->role === 'admin' && $request->filled('store_id')) {
+            return ResponseService::validationError([
+                'store_id' => ['Admins should not be assigned to a store.']
+            ]);
+        }
+
+        if (in_array($request->role, ['cashier', 'manager']) && !$request->filled('store_id')) {
+            return ResponseService::validationError([
+                'store_id' => ['Store is required for this role.']
+            ]);
         }
 
         try {
             $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => $request->role,
-                'store_id' => $request->store_id, // ✅ Ensure store_id is valid if provided
+                'name'      => $request->name,
+                'email'     => $request->email,
+                'password'  => Hash::make($request->password),
+                'role'      => $request->role,
+                'store_id'  => $request->role !== 'admin' ? $request->store_id : null,
             ]);
 
             return ResponseService::success('User created successfully', $user, 201);
@@ -68,28 +87,45 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * ✅ Update user details
-     */
     public function updateUser(Request $request, $id)
     {
         try {
             $user = User::withTrashed()->findOrFail($id);
 
             $validator = Validator::make($request->all(), [
-                'name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
-                'password' => 'nullable|string|min:6'
+                'name'      => 'sometimes|string|max:255',
+                'email'     => 'sometimes|string|email|max:255|unique:users,email,' . $id,
+                'password'  => 'nullable|string|min:6',
+                'role'      => 'sometimes|in:admin,cashier,manager',
+                'store_id'  => 'nullable|exists:stores,id',
             ]);
 
             if ($validator->fails()) {
                 return ResponseService::validationError($validator->errors());
             }
 
+            $role = $request->role ?? $user->role;
+
+            // ✅ Business Logic Checks
+            if ($role === 'admin' && $request->filled('store_id')) {
+                return ResponseService::validationError([
+                    'store_id' => ['Admins should not be assigned to a store.']
+                ]);
+            }
+
+            if (in_array($role, ['cashier', 'manager']) && !$request->filled('store_id')) {
+                return ResponseService::validationError([
+                    'store_id' => ['Store is required for this role.']
+                ]);
+            }
+
+            // ✅ Safe field updates
             $user->update([
-                'name' => $request->name ?? $user->name,
-                'email' => $request->email ?? $user->email,
-                'password' => $request->password ? Hash::make($request->password) : $user->password
+                'name'      => $request->name ?? $user->name,
+                'email'     => $request->email ?? $user->email,
+                'password'  => $request->password ? Hash::make($request->password) : $user->password,
+                'role'      => $role,
+                'store_id'  => $role === 'admin' ? null : $request->store_id,
             ]);
 
             return ResponseService::success('User updated successfully', $user);
@@ -97,6 +133,7 @@ class UserController extends Controller
             return ResponseService::error('Failed to update user', $e->getMessage());
         }
     }
+
 
     /**
      * ✅ Soft-delete (archive) a user

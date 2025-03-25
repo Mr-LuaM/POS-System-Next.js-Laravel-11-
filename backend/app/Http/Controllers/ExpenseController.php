@@ -114,4 +114,27 @@ class ExpenseController extends Controller
             return ResponseService::error("Failed to update expense", $e->getMessage());
         }
     }
+
+    /**
+     * ✅ Delete Expense (Soft Delete)
+     */
+    public function delete($id)
+    {
+        try {
+            $user = Auth::user();
+            $expense = Expense::findOrFail($id);
+
+            // 🔒 Restrict non-admins from deleting others' store expenses
+            if ($user->role !== 'admin' && $user->store_id != $expense->store_id) {
+                return ResponseService::error("Unauthorized", "You can only delete expenses from your assigned store.");
+            }
+
+            // ✅ Soft delete the expense
+            $expense->delete();
+
+            return ResponseService::success("Expense deleted successfully");
+        } catch (\Exception $e) {
+            return ResponseService::error("Failed to delete expense", $e->getMessage());
+        }
+    }
 }

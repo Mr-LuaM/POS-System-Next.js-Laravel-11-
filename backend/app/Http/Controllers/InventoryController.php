@@ -76,11 +76,11 @@ class InventoryController extends Controller
 
 
     /**
-     * ✅ Add a new product (Admin Only)
+     * ✅ Add a new product (Admin Only and manager)
      */
     public function addProduct(Request $request)
     {
-        if (Auth::user()->role !== 'admin') {
+        if (!in_array(Auth::user()->role, ['admin', 'manager'])) {
             return ResponseService::error('Unauthorized access', null, 403);
         }
 
@@ -616,11 +616,12 @@ class InventoryController extends Controller
     /**
      * ✅ Fetch products that are low in stock
      */
-    public function getLowStockProducts()
+    public function getLowStockProducts(Request $request)
     {
-        // ✅ Fetch products where stock is below or equal to the threshold
-        $lowStockProducts = StoreProduct::whereColumn('stock_quantity', '<=', 'low_stock_threshold')
-            ->join('products', 'store_products.product_id', '=', 'products.id') // ✅ Join for product details
+        $storeId = $request->query('store_id'); // 📌 Optional filter
+
+        $query = StoreProduct::whereColumn('stock_quantity', '<=', 'low_stock_threshold')
+            ->join('products', 'store_products.product_id', '=', 'products.id')
             ->select(
                 'store_products.id as store_product_id',
                 'store_products.store_id',
@@ -632,9 +633,14 @@ class InventoryController extends Controller
                 'products.sku',
                 'products.barcode',
                 'products.qr_code'
-            )
-            ->orderBy('store_products.stock_quantity', 'asc')
-            ->get();
+            );
+
+        // ✅ Filter by store_id if provided
+        if ($storeId) {
+            $query->where('store_products.store_id', $storeId);
+        }
+
+        $lowStockProducts = $query->orderBy('store_products.stock_quantity', 'asc')->get();
 
         return response()->json([
             'success' => true,

@@ -55,7 +55,7 @@ Route::middleware('auth:api')->group(function () {
         // ✅ Inventory Management (Admins See All, Store Managers Limited)
         Route::prefix('/inventory')->group(function () {
             // Route::get('/', [InventoryController::class, 'getAll']); // ✅ Fetch all inventory
-            Route::post('/add', [InventoryController::class, 'addProduct']); // ✅ Add product
+            // Route::post('/add', [InventoryController::class, 'addProduct']); // ✅ Add product
             Route::put('/update/{id}', [InventoryController::class, 'updateProduct']); // ✅ Update product
 
             // ✅ Stock Management
@@ -202,6 +202,7 @@ Route::middleware('auth:api')->group(function () {
             Route::get('/', [ExpenseController::class, 'index']);
             Route::post('/add', [ExpenseController::class, 'store']);
             Route::put('/{id}', [ExpenseController::class, 'update']); // ✅ Soft Delete
+            Route::delete('/{id}', [ExpenseController::class, 'delete']); // ✅ Soft Delete
 
             Route::delete('/archive/{id}', [ExpenseController::class, 'archiveExpense']); // ✅ Soft Delete
             Route::put('/restore/{id}', [ExpenseController::class, 'restoreExpense']); // ✅ Restore
@@ -229,6 +230,7 @@ Route::middleware('auth:api')->group(function () {
         });
         Route::get('/inventory/stock-movements', [InventoryController::class, 'getStockMovements']);
         Route::get('/inventory/low-stock', [InventoryController::class, 'getLowStockProducts']); // ✅ Fetch low-stock alerts
+        Route::post('inventory/add', [InventoryController::class, 'addProduct']);
 
         Route::get('/sales/{sale}/items', [SalesController::class, 'getSaleItems']); // ✅ Fetch sale items
         Route::post('/sales/{saleId}/refund', [RefundController::class, 'processRefund']);

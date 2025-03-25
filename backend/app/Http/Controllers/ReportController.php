@@ -11,6 +11,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Store;
 use App\Services\ResponseService;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -30,37 +31,44 @@ class ReportController extends Controller
                 'cashier_id' => 'nullable|exists:users,id',
             ]);
 
-            // ✅ Base Query
-            $query = Sale::with(['store', 'user', 'saleItems.product'])
-                ->whereBetween('created_at', [
-                    $request->start_date ?? now()->startOfMonth(),
-                    $request->end_date ?? now()->endOfMonth(),
-                ]);
+            // ✅ Date Range
+            $startDate = $request->start_date ?? now()->startOfMonth();
+            $endDate = $request->end_date ?? now()->endOfMonth();
 
-            // 🔹 Apply Filters
+            // ✅ Base Sales Query (All Sales)
+            $baseQuery = Sale::with('saleItems')
+                ->whereBetween('created_at', [$startDate, $endDate]);
+
             if ($request->store_id) {
-                $query->where('store_id', $request->store_id);
+                $baseQuery->where('store_id', $request->store_id);
             }
 
             if ($request->cashier_id) {
-                $query->where('user_id', $request->cashier_id);
+                $baseQuery->where('user_id', $request->cashier_id);
             }
 
             if ($user->role !== 'admin') {
-                $query->where('store_id', $user->store_id);
+                $baseQuery->where('store_id', $user->store_id);
             }
 
-            // ✅ Aggregates
-            $totalSales = $query->count();
-            $totalRevenue = (float) $query->sum('total_amount'); // 🔧 Ensure float
+            $allSales = $baseQuery->get();
+            $completedSales = $allSales->where('status', '!=', 'refunded');
+            $refundedSales = $allSales->where('status', 'refunded');
 
-            // ✅ Best-Selling Products with Correct Revenue Calculation
+            // ✅ Summary
+            $totalSales = $allSales->count();
+            $totalRevenue = $completedSales->sum('total_amount');
+            $refundedSalesCount = $refundedSales->count();
+            $refundedRevenue = $refundedSales->sum('total_amount');
+
+            // ✅ Best-Selling Products (Completed Sales Only)
+            $completedSaleIds = $completedSales->pluck('id');
             $bestSellingProducts = SaleItem::select(
                 'product_id',
                 DB::raw('SUM(quantity) as total_sold'),
-                DB::raw('SUM(subtotal) as total_revenue_per_product')  // 🔧 Use subtotal instead of price
+                DB::raw('SUM(subtotal) as total_revenue_per_product')
             )
-                ->whereIn('sale_id', $query->pluck('id'))
+                ->whereIn('sale_id', $completedSaleIds)
                 ->groupBy('product_id')
                 ->orderByDesc('total_sold')
                 ->limit(5)
@@ -68,14 +76,36 @@ class ReportController extends Controller
                 ->get()
                 ->map(fn($item) => [
                     'product_name' => $item->product->name,
-                    'total_sold' => $item->total_sold,
-                    'sale_amount' => (float) $item->total_revenue_per_product, // 🔧 Ensure float
+                    'total_sold' => (int) $item->total_sold,
+                    'sale_amount' => (float) $item->total_revenue_per_product,
                 ]);
+
+            // ✅ Full Product Breakdown
+            $allItems = SaleItem::with('product')
+                ->whereIn('sale_id', $allSales->pluck('id'))
+                ->get();
+
+            $productBreakdown = $allItems->groupBy('product_id')->map(function ($items, $productId) {
+                $productName = $items->first()->product->name ?? 'Unknown';
+                $totalSold = $items->sum('quantity');
+                $refunded = $items->filter(fn($item) => $item->sale->status === 'refunded')->sum('quantity');
+                $netSold = $totalSold; // 🟡 Keep full quantity for accurate sales data
+
+                return [
+                    'product_name' => $productName,
+                    'total_sold' => $totalSold,
+                    'refunded_quantity' => $refunded,
+                    'net_sold' => $netSold,
+                ];
+            })->values();
 
             return ResponseService::success("Sales report generated successfully", [
                 'total_sales' => $totalSales,
                 'total_revenue' => $totalRevenue,
+                'refunded_sales' => $refundedSalesCount,
+                'refunded_revenue' => $refundedRevenue,
                 'best_selling_products' => $bestSellingProducts,
+                'product_breakdown' => $productBreakdown,
             ]);
         } catch (\Exception $e) {
             return ResponseService::error("Failed to fetch sales report", $e->getMessage());
@@ -198,8 +228,7 @@ class ReportController extends Controller
 
             // ✅ Always Fetch Data for Current Month
             $startDate = $request->start_date ?? now()->startOfMonth()->toDateString();
-            $endDate = $request->end_date ?? now()->toDateString(); // Today's date
-
+            $endDate = $request->end_date ?? now()->endOfDay()->toDateTimeString();
             // ✅ Check if store_id is provided
             $storeId = $request->store_id ?? null;
 
@@ -308,7 +337,7 @@ class ReportController extends Controller
                 'expense_breakdown' => $expenseBreakdown,
             ]);
         } catch (\Exception $e) {
-            \Log::error('Dashboard Error:', [
+            Log::error('Dashboard Error:', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
