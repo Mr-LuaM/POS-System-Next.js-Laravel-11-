@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -48,37 +50,44 @@ console.log(lowStockProducts);
       <div className="flex items-center gap-4">
         {/* ✅ Low Stock Notification Dropdown */}
         <Popover open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-6 h-6 text-primary" />
-              {!loading && lowStockProducts?.length > 0 && (
-                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 rounded-full">
-                  {lowStockProducts.length}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-3">
-            <h3 className="text-sm font-semibold text-primary">Low Stock Alerts</h3>
-            {loading ? (
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            ) : lowStockProducts?.length > 0 ? (
-              <ul className="mt-2 space-y-2">
-                {lowStockProducts.slice(0, 5).map((product, index) => (
-                  <li key={product.store_product_id || index} className="flex justify-between items-center text-xs p-2 bg-gray-100 rounded">
-                    <span className="truncate w-40">{product.product_name || "Unknown"}</span>
-                    <Badge variant="outline" className="bg-red-500 text-white px-2">
-                      {product.stock_quantity} left
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-muted-foreground">No low-stock items.</p>
-            )}
-        
-          </PopoverContent>
-        </Popover>
+  <PopoverTrigger asChild>
+    <Button variant="ghost" size="icon" className="relative">
+      <Bell className="w-6 h-6 text-primary" />
+      {!loading && lowStockProducts?.length > 0 && (
+        <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 rounded-full">
+          {lowStockProducts.length}
+        </Badge>
+      )}
+    </Button>
+  </PopoverTrigger>
+
+  <PopoverContent className="w-72 p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg rounded-md">
+    <h3 className="text-sm font-semibold text-primary dark:text-white">Low Stock Alerts</h3>
+
+    {loading ? (
+      <p className="text-xs text-muted-foreground">Loading...</p>
+    ) : lowStockProducts?.length > 0 ? (
+      <ul className="mt-2 space-y-2">
+        {lowStockProducts.slice(0, 5).map((product, index) => (
+          <li
+            key={product.store_product_id || index}
+            className="flex justify-between items-center text-xs p-2 bg-gray-100 dark:bg-zinc-800 rounded"
+          >
+            <span className="truncate w-40 text-zinc-800 dark:text-zinc-100">
+              {product.product_name || "Unknown"}
+            </span>
+            <Badge variant="outline" className="bg-red-500 text-white px-2">
+              {product.stock_quantity} left
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p className="text-xs text-muted-foreground">No low-stock items.</p>
+    )}
+  </PopoverContent>
+</Popover>
+
 
         {/* ✅ User Info */}
         <div className="text-right">

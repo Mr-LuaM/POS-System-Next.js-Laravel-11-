@@ -1,4 +1,22 @@
 "use client";
+// Define types for the data objects
+interface SalesTrendEntry {
+  sales_date: string; // or Date if it's a Date object
+  revenue: number;
+}
+
+interface BestSellingProduct {
+  product_name: string;
+  total_sold: number;
+}
+
+interface PaymentMethod {
+  payment_method: string;
+  count: number;
+}
+
+
+
 
 import { useDashboard } from "@/hooks/useDashboard";
 import { Line, Bar, Pie } from "react-chartjs-2";
@@ -6,7 +24,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import "@/lib/chartConfig"; // Ensure Chart.js is registered
 
 export default function DashboardPage() {
-  const { dashboard, loading } = useDashboard();
+  const { dashboard, loading } = useDashboard(); // Use the type in the hook
 
   if (loading) return <p className="text-center">Loading dashboard...</p>;
 
@@ -44,11 +62,11 @@ export default function DashboardPage() {
         <CardContent>
           <Line
             data={{
-              labels: dashboard?.sales_trend?.map((entry) => entry.sales_date) || [],
+              labels: dashboard?.sales_trend?.map((entry: SalesTrendEntry) => entry.sales_date) || [],
               datasets: [
                 {
                   label: "Revenue",
-                  data: dashboard?.sales_trend?.map((entry) => entry.revenue) || [],
+                  data: dashboard?.sales_trend?.map((entry: SalesTrendEntry) => entry.revenue) || [],
                   borderColor: "#007C3D",
                   backgroundColor: "rgba(0, 124, 61, 0.3)",
                   fill: true,
@@ -65,11 +83,11 @@ export default function DashboardPage() {
         <CardContent>
           <Bar
             data={{
-              labels: dashboard?.best_selling_products?.map((p) => p.product_name) || [],
+              labels: dashboard?.best_selling_products?.map((p: BestSellingProduct) => p.product_name) || [],
               datasets: [
                 {
                   label: "Total Sold",
-                  data: dashboard?.best_selling_products?.map((p) => p.total_sold) || [],
+                  data: dashboard?.best_selling_products?.map((p: BestSellingProduct) => p.total_sold) || [],
                   backgroundColor: "#FFC72C",
                 },
               ],
@@ -84,10 +102,10 @@ export default function DashboardPage() {
         <CardContent>
           <Pie
             data={{
-              labels: dashboard?.payment_methods?.map((m) => m.payment_method) || [],
+              labels: dashboard?.payment_methods?.map((m: PaymentMethod) => m.payment_method) || [],
               datasets: [
                 {
-                  data: dashboard?.payment_methods?.map((m) => m.count) || [],
+                  data: dashboard?.payment_methods?.map((m: PaymentMethod) => m.count) || [],
                   backgroundColor: ["#007C3D", "#FFC72C", "#FF5733"],
                 },
               ],

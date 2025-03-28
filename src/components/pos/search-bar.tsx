@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, forwardRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
@@ -9,7 +9,8 @@ interface SearchBarProps {
   onSearch: (query: string) => void;
 }
 
-export default function POSSearchBar({ onSearch }: SearchBarProps) {
+// Using forwardRef to handle the ref properly
+const POSSearchBar = forwardRef<HTMLInputElement, SearchBarProps>(({ onSearch }: SearchBarProps, ref) => {
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -29,7 +30,7 @@ export default function POSSearchBar({ onSearch }: SearchBarProps) {
   return (
     <div className="flex items-center space-x-2 w-full">
       <Input
-        ref={inputRef}
+        ref={ref || inputRef} // Use forwarded ref if provided
         type="text"
         placeholder="Scan barcode or enter SKU..."
         value={searchQuery}
@@ -43,4 +44,8 @@ export default function POSSearchBar({ onSearch }: SearchBarProps) {
       </Button>
     </div>
   );
-}
+});
+
+POSSearchBar.displayName = "POSSearchBar"; // For debugging purposes
+
+export default POSSearchBar;

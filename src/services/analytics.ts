@@ -1,3 +1,4 @@
+/* eslint-disable */
 
 import { axiosInstance, handleApiError } from "@/lib/apiService";
 

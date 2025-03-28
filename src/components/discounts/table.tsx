@@ -109,7 +109,7 @@ export default function DiscountsTable() {
         <div className="w-full max-w-none px-0">
           <DataTable
             columns={getDiscountColumns(openEditModal, setDeleteDiscountId)}
-            data={discounts.map((discount) => ({
+            data={discounts.map((discount: any) => ({
               ...discount,
               category_name: discount.category_id ? "Category Name" : "N/A",
               product_name: discount.product_id ? "Product Name" : "N/A",

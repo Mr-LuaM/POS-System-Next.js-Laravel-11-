@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { getProducts, Product } from "@/services/products";

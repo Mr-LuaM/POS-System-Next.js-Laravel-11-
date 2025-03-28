@@ -74,7 +74,7 @@ export default function FilterDropdown({
           <CommandInput
             placeholder={`Search ${label}...`}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onValueChange={(value: string) => setSearchTerm(value)}
             autoFocus
           />
           <CommandList>

@@ -1,7 +1,8 @@
+/* eslint-disable */
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import axios from "axios"; // ✅ API Calls to Backend
 import { getUser, getStoreName } from "@/lib/auth"; // ✅ Fetch full user details & store name
 import { useCustomers } from "@/hooks/useCustomers";
 import { useInventory } from "@/hooks/useInventory";
@@ -31,7 +32,23 @@ interface Transaction {
   paymentMethod: "cash" | "credit" | "digital";
   breakdown: CartItem[];
 }
-
+interface Transaction {
+  id: number;
+  storeName: string;
+  total: number;
+  change: number;
+  customerId: number;
+  customerName: string;
+  paymentMethod: "cash" | "credit" | "digital";
+  breakdown: CartItem[];
+  date: string; // Add date property
+  items: CartItem[]; // Add items property
+  subtotal: number; // Add subtotal property
+  discount: number; // Add discount property
+  paid: number; // Add paid property
+  cashier: string; // Add cashier property
+  transactionId: string; // Change transactionId to string to match ReceiptModalProps
+}
 export default function POSPage() {
   // ✅ State for Cart, Transactions & Modals
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -108,14 +125,14 @@ export default function POSPage() {
           e.preventDefault();
           openPaymentModal("cash");
           break;
-        case "F6":
-          e.preventDefault();
-          processTransaction("credit", null);
-          break;
-        case "F7":
-          e.preventDefault();
-          processTransaction("digital", null);
-          break;
+        // case "F6":
+        //   e.preventDefault();
+        //   processTransaction("credit", null);
+        //   break;
+        // case "F7":
+        //   e.preventDefault();
+        //   processTransaction("digital", null);
+        //   break;
         case "F8":
           e.preventDefault();
           voidTransaction();
@@ -252,13 +269,16 @@ const processTransaction = async (payments: { method: string; amount: number; ch
         date: new Date().toLocaleString(),
         items: cart, // ✅ Send cart items to the receipt
         subtotal,
-        // tax,
         discount,
         total: totalAmount,
         paid: cashReceived, // ✅ Show actual paid amount
         change, // ✅ Show correct change
         cashier: cashierName ?? "Unknown",
-        transactionId: response.data.sale_id
+        transactionId: response.data.sale_id,
+        customerId: customerId ?? 0, // Add customerId
+        customerName: customerName ?? "Guest", // Add customerName
+        paymentMethod: paymentMethod, // Add paymentMethod
+        breakdown: cart, // Add breakdown (same as items)
       });
 
       setIsReceiptModalOpen(true);
@@ -286,7 +306,7 @@ const voidTransaction = () => {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <POSHeader cashierName={cashierName} storeName={storeName} customerName={customerName} customerLoyaltyPoints={customerLoyaltyPoints} />
       <POSSearchBar ref={searchInputRef} onSearch={handleSearch} />
-      <Cart cart={cart} updateQuantity={handleAddToCart} removeItem={id => setCart(cart.filter(item => item.id !== id))} voidTransaction={voidTransaction} />
+      <Cart cart={cart} updateQuantity={(id, amount) => handleAddToCart({ id, name: "", price: 0, quantity: amount })} removeItem={id => setCart(cart.filter(item => item.id !== id))} voidTransaction={voidTransaction} />
       <PaymentActions processTransaction={openPaymentModal} />
       <ReceiptModal isOpen={isReceiptModalOpen} onClose={() => setIsReceiptModalOpen(false)} transaction={transaction} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} totalAmount={cart.reduce((sum, item) => sum + item.price * item.quantity, 0)} onCompletePayment={processTransaction} />

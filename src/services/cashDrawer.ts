@@ -3,16 +3,21 @@
 import { axiosInstance, handleApiError } from "@/lib/apiService";
 
 export interface CashDrawer {
-  id: number;
+  cash_drawer_id: number;
   store_id: number;
-  opening_balance: number;
-  closing_balance: number | null;
-  actual_cash_collected?: number | null;
-  total_collected: number;
-  total_sales: number;
-  total_change_given: number;
-  variance: number;
+  cashier_id: number;
+  cashier_name: string;
+  opening_balance: string | number;
+  closing_balance: string | number | null;
+  actual_cash_collected?: string | number | null;
+  total_collected: string | number;
+  total_sales: string | number;
+  total_change_given: string | number;
+  variance: string | number | null;
+  drawer_balance: string | number;
   status: string;
+  cash_drawer_date: string;
+  shift_date: string;
 }
 
 /**

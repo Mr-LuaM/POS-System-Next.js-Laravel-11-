@@ -10,6 +10,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   cashDrawerId: number;
+  isAdmin: boolean; // Add the isAdmin prop here
+
 }
 
 /**

@@ -64,9 +64,14 @@ export default function LoginPage() {
             />
 
             {/* ✅ Login Button */}
-            <Button className="w-full bg-primary text-white" onClick={handleLogin} disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
-            </Button>
+            <Button
+  className="w-full bg-primary text-white dark:bg-primary-dark dark:text-black" // Styles for both light and dark
+  onClick={handleLogin}
+  disabled={loading}
+>
+  {loading ? "Logging in..." : "Login"}
+</Button>
+
           </div>
         </CardContent>
       </Card>

@@ -13,6 +13,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string; // ✅ Custom label for confirmation button
   cancelLabel?: string; // ✅ Custom label for cancel button
   confirmVariant?: "default" | "destructive" | "secondary" | "outline"; // ✅ Custom button variant
+  loading?: boolean; // Add loading prop here (optional)
+
 }
 
 /**
