@@ -130,8 +130,15 @@ This project is for **educational and training purposes** as part of my  **OJT a
 
 ## 👨‍💻 Author
 
-**[Your Name]** – OJT at Infinitech
+**[Mark Lua]** – OJT at Infinitech
 
 ## ⭐ Contributions
 
-This project is still under development. Contributions are welcome after the initial release!
+⚠️ Disclaimer
+This project is still under active development.
+Features may change, bugs may appear, and some parts might not be fully optimized yet.
+
+It's also our first serious attempt using Next.js, so the code might not be the cleanest or most idiomatic in places.
+We're learning as we go — so feel free to explore, suggest improvements, or contribute after the initial release!
+
+We welcome constructive feedback, ideas, and pull requests — just please be kind 😄
